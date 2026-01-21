@@ -2,3 +2,6 @@
 name = "careful-scada"
 version = "0.1.0"
 description = "A preprocessing library for the CARE open source SCADA data."
+
+[tool.setuptools.packages.find]
+include = ["care_scada"]
