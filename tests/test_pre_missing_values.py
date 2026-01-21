@@ -1,5 +1,5 @@
 """
-Tests for the handling of missing values. 
+Tests for the handling of missing values.
 """
 
 import sys
@@ -18,7 +18,7 @@ from care_scada.preprocessing import Preprocessor
 
 df_normal = pd.DataFrame({
     "dataset_id": ["1", "1", "1", "1", "1"],
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20",
                                   "2022-01-01 00:30", "2022-01-01 00:40"]),
     "outside_temp_c_avg": [10.0, 10.0, 11.0, 12.0, 12.0], #rarly zero
     "rotor_speed_rpm_avg": [20.0, 19.0, 21.0, 20.0, 22.0], #often zero
@@ -69,17 +69,17 @@ df_power_with_no_wind_speed = pd.DataFrame({
 DETECT_MISSING_VALUES_TEST_CASES = [
     # normal data without zeros
     (df_normal, df_normal),
-    
+
     # rarely zero sensor with short zero run -> no removal
     (df_with_short_zero_run, df_with_short_zero_run),
-    
+
     # rarely zero sensor with long zero run -> removal
     # rotor_speed and active_power are often zero sensors and cross validated, so their zeros are kept
-    (df_with_long_zero_run, 
+    (df_with_long_zero_run,
      df_with_long_zero_run.assign(outside_temp_c_avg=[10.0] + [np.nan]*62 + [12.0])),
 
     # cross sensor validation: active_power > 100kw while rotor_speed is zero -> rotor_speed zeros are nans
-    (df_power_with_no_rotor_speed, 
+    (df_power_with_no_rotor_speed,
      df_power_with_no_rotor_speed.assign(rotor_speed_rpm_avg=[np.nan]*5)),
 
      # cross sensor validation: active_power very low while rotor_speed is zero -> rotor_speed zeros are kept
@@ -87,7 +87,7 @@ DETECT_MISSING_VALUES_TEST_CASES = [
      df_power_with_no_rotor_speed.assign(active_power_kWh=[0.4, 0.5, 0.3, 0.3, 0.3])),
 
     # cross sensor validation: rotor_speed > 2 rpm while active_power is zero -> active_power zeros are nans
-    (df_rotor_speed_with_no_power, 
+    (df_rotor_speed_with_no_power,
      df_rotor_speed_with_no_power.assign(active_power_kWh=[np.nan]*5)),
 
     # cross sensor validation: rotor_speed very low while active_power is zero -> active_power zeros are kept
@@ -95,7 +95,7 @@ DETECT_MISSING_VALUES_TEST_CASES = [
      df_rotor_speed_with_no_power.assign(rotor_speed_rpm_avg=[1.0, 1.5, 1.2, 1.0, 1.3])),
 
     # cross sensor validation: active_power > 100kw while wind_speed is zero -> wind_speed zeros are nans
-    (df_power_with_no_wind_speed, 
+    (df_power_with_no_wind_speed,
      df_power_with_no_wind_speed.assign(wind_speed1_ms_avg=[np.nan]*5)),
 
 ]
@@ -106,9 +106,9 @@ def test_detect_missing_values(input_df, expected_df):
                      numeric_cols=["outside_temp_c_avg", "rotor_speed_rpm_avg", "active_power_kWh"],
                      missing_values="keep",
                      verbose=False)
-    
+
     output_df = p._handle_missing_values(input_df)
-    
+
     pd.testing.assert_frame_equal(output_df, expected_df)
 
 
@@ -118,7 +118,7 @@ def test_detect_missing_values(input_df, expected_df):
 
 HANDLE_MISSING_VALUES_TEST_CASES = [
     # dropping
-    (df_with_long_zero_run, "drop", 
+    (df_with_long_zero_run, "drop",
      df_with_long_zero_run.assign(outside_temp_c_avg=[10.0] + [np.nan]*62 + [12.0]).dropna()),
     # linear interpolation
     (df_with_long_zero_run, "linear_interpolation",
@@ -126,15 +126,15 @@ HANDLE_MISSING_VALUES_TEST_CASES = [
     # median
     (df_with_long_zero_run, "median",
      df_with_long_zero_run.assign(outside_temp_c_avg=[10.0] + [11.0]*62 + [12.0])),
-]      
+]
 @pytest.mark.parametrize("input_df, strategy, expected_df", HANDLE_MISSING_VALUES_TEST_CASES)
 def test_handle_missing_values(input_df, strategy, expected_df):
     p = Preprocessor(wind_farm="B",
                      numeric_cols=["outside_temp_c_avg", "rotor_speed_rpm_avg", "active_power_kWh"],
                      missing_values=strategy,
                      verbose=False)
-    
+
     output_df = p._handle_missing_values(input_df)
-    
-    pd.testing.assert_frame_equal(output_df, expected_df)   
+
+    pd.testing.assert_frame_equal(output_df, expected_df)
 

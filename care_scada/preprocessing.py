@@ -29,7 +29,8 @@ class Preprocessor:
         wind_farm: Wind farm identifier (A, B, C) to apply farm specific preprocessing rules.
         dataset_id: If specified, only process this dataset_id (faster than processing all!)
         remove_status: List of status_type_id values to remove from the data.
-        missing_values: Strategy for handling missing values ("keep", "drop", "linear_interpolation", "median").
+        missing_values: Strategy for handling missing values 
+                        ("keep", "drop", "linear_interpolation", "median").
         outlier_handling: Strategy for handling outliers ("flag_only", "set_to_nan", "drop").
         numeric_cols: List of numeric columns to consider. If None, auto-detects numeric columns.
         verbose: If True, print information and statistics during preprocessing.
@@ -48,9 +49,9 @@ class Preprocessor:
         self.wind_farm = wind_farm
         self.dataset_id = str(dataset_id) if dataset_id is not None else None
         self.numeric_cols = numeric_cols
-        if type(remove_status) == list:
+        if isinstance(remove_status, list):
             self.remove_status = remove_status
-        elif type(remove_status) == int:
+        elif isinstance(remove_status, int):
             self.remove_status = [remove_status]
         self.missing_values = missing_values
         self.outlier_handling = outlier_handling
@@ -75,7 +76,7 @@ class Preprocessor:
             raise ValueError("DataFrame must have MultiIndex (dataset_id, time_stamp)")
         if df.index.names != ['dataset_id', 'time_stamp']:
             raise ValueError(f"Index levels must be ['dataset_id', 'time_stamp'], got {df.index.names}")
-        
+
         # for testing only keep one dataset_id
         if self.dataset_id is not None:
             df = df.xs(self.dataset_id, level='dataset_id', drop_level=False)
@@ -115,14 +116,14 @@ class Preprocessor:
 
         # handle missing values
         df = self._handle_missing_values(df)
-        df = self._flag_outliers(df) 
+        df = self._flag_outliers(df)
 
         # remove outliers except for sensors that measure the same underlying latent variable
         # e.g. different wind measurements
         df = self._handle_outliers(df)
 
         return df
-    
+
 
     def add_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -161,11 +162,11 @@ class Preprocessor:
             DataFrame with duplicates removed.
         """
         def check_duplicates(group):
-             
+
             # mark all duplicates
             duplicates = group.index.get_level_values('time_stamp').duplicated(keep=False)
             all_duplicates_on_28th = False
-
+            # TODO: I found that the authors of the dataset may have fixed that issue in a new release.
             # Special Case: the 28th of February is sometimes duplicated due to leap years.
             # In this case, we keep the 28th (first occurrence) and drop the 29th (second occurrence).
             # (Instead of dropping both duplicates)
@@ -188,20 +189,22 @@ class Preprocessor:
                 if all_duplicates_on_28th and self.verbose:
                     dataset_id = group.index.get_level_values('dataset_id')[0]
                     dup_timestamps = group.index.get_level_values('time_stamp')[duplicates].unique()
-                    print(f"Dataset ID {dataset_id}: Kept first occurance of duplicate timestamps on Feb 28th during non-leap year.")
+                    print(f"Dataset ID {dataset_id}: Kept first occurance of duplicate timestamps \
+                                                     on Feb 28th during non-leap year.")
 
                 elif self.verbose:
                     dataset_id = group.index.get_level_values('dataset_id')[0]
                     dup_timestamps = group.index.get_level_values('time_stamp')[duplicates].unique()
-                    print(f"Dataset ID {dataset_id}: Dropped all {len(dup_timestamps)} duplicate timestamps: {dup_timestamps.tolist()}")
+                    print(f"Dataset ID {dataset_id}: Dropped all {len(dup_timestamps)} duplicate \
+                          timestamps: {dup_timestamps.tolist()}")
 
                 # Drop both duplicates
                 group = group[~duplicates]
-            
+
             elif self.verbose:
                 dataset_id = group.index.get_level_values('dataset_id')[0]
                 print(f"Dataset ID {dataset_id}: No duplicate timestamps found.")
-            
+
             return group
 
         df = df.groupby(level='dataset_id', group_keys=False).apply(check_duplicates)
@@ -245,7 +248,7 @@ class Preprocessor:
 
         df = df.groupby(level='dataset_id', group_keys=False).apply(missing_timestamps)
         return df
-    
+
 
     def _set_numeric_cols(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -266,7 +269,7 @@ class Preprocessor:
         Copied from dat/raw/README.md:
         "Status of the wind turbine at the given time stamp:
         There are 6 different status IDs where status 0 and 2 are considered normal operation:
-        * 0: Normal Operation - The turbine is in normal power production mode 
+        * 0: Normal Operation - The turbine is in normal power production mode
         * 1: Derated Operation - Derated power generation with a power restriction
         * 2: Idling - Asset is idling and waits to operate again
         * 3: Service - Asset is in service mode / service team is at the site
@@ -281,7 +284,7 @@ class Preprocessor:
 
         # Before collect filtering statistics, len per dataset_id
         before = df.groupby(level='dataset_id').size()
-        
+
         # Apply filterinng
         if "status_type_id" in df.columns:
             df = df[~df["status_type_id"].isin(self.remove_status)]
@@ -306,7 +309,7 @@ class Preprocessor:
                     "filtered_percent": round(filtered_percent, 2)
                 })
             filter_stats_df = pd.DataFrame(filter_stats).set_index("dataset_id")
-        
+
             # Printing: only show places where something was filtered
             if filter_stats_df.empty:
                 print("Filtering Stats: no values were filtered.")
@@ -326,18 +329,18 @@ class Preprocessor:
         """
         Handle missing values in the dataframe according to the specified strategy.
         Quote from the article:
-            " The data for wind farm B and C were provided by the operator, with 0 values replacing all 
-            missing values, so large amounts of consecutive 0 values must be treated with caution."
+        "The data for wind farm B and C were provided by the operator, with 0 values replacing
+        all missing values, so large amounts of consecutive 0 values must be treated with caution."
 
         Therefore we set all large amouts of consecutive 0 values to NaN before applying the missing
-        value strategy. 
+        value strategy.
 
         Strategies:
         - "keep": Keep NaN values as is, no filling or dropping.
         - "drop": Drop rows with any NaN values in numeric columns.
         - "linear_interpolation": Fill NaN values using linear interpolation.
         - "median": Fill NaN values with the median of each numeric column per 'dataset_id'.
-        Returns: 
+        Returns:
             DataFrame without missing values, filled or dropped according to strategy.
         """
         if self.wind_farm in ['B', 'C']:
@@ -371,7 +374,7 @@ class Preprocessor:
 
             # define sensors which can be zero often:
             #  -> use cross sensore validation to detect faulty zeros
-            often_zero_sensors = ["rotor_speed_rpm_avg", "active_power_kWh", "wind_speed1_ms_avg", 
+            often_zero_sensors = ["rotor_speed_rpm_avg", "active_power_kWh", "wind_speed1_ms_avg",
                                   "wind_speed2_ms_avg", "wind_speed3_ms_avg"]
 
             for col in often_zero_sensors:
@@ -381,7 +384,7 @@ class Preprocessor:
                     def invalid_zero_condition(row):
                         return row["rotor_speed_rpm_avg"] == 0 and row["active_power_kWh"] > 100
                     df.loc[df.apply(invalid_zero_condition, axis=1), col] = np.nan
-                    
+
                 elif col == "active_power_kWh":
                     def invalid_zero_condition(row):
                         return row["active_power_kWh"] == 0 and row["rotor_speed_rpm_avg"] > 2
@@ -391,20 +394,20 @@ class Preprocessor:
                     def invalid_zero_condition(row):
                         return row[col] == 0 and row["active_power_kWh"] > 100
                     df.loc[df.apply(invalid_zero_condition, axis=1), col] = np.nan
-                
+
 
 
         # Print NaN counts per column
         if self.verbose:
-            nan_counts_per_group = df.groupby('dataset_id')[self.numeric_cols].apply(lambda x: x.isna().sum())
+            nans_per_group = df.groupby('dataset_id')[self.numeric_cols].apply(lambda x: x.isna().sum())
             print("\nMissing Values (NaN) per dataset_id and column:")
             # drop cols and rows with all zeros
-            nan_counts_per_group = nan_counts_per_group.loc[:, (nan_counts_per_group != 0).any(axis=0)]
-            nan_counts_per_group = nan_counts_per_group.loc[(nan_counts_per_group != 0).any(axis=1), :]
-            if nan_counts_per_group.empty:
+            nans_per_group = nans_per_group.loc[:, (nans_per_group != 0).any(axis=0)]
+            nans_per_group = nans_per_group.loc[(nans_per_group != 0).any(axis=1), :]
+            if nans_per_group.empty:
                 print("No missing values detected.")
             else:
-                print(nan_counts_per_group)
+                print(nans_per_group)
 
         if self.missing_values == "keep":
             df = df
@@ -415,23 +418,26 @@ class Preprocessor:
         elif self.missing_values == "linear_interpolation":
 
             def interpolate_group(group):
-                group[self.numeric_cols] = group[self.numeric_cols].interpolate(method='linear', limit_direction='both')
+                group[self.numeric_cols] = group[self.numeric_cols].interpolate(method='linear', 
+                                                                            limit_direction='both')
                 return group
 
             df = df.groupby('dataset_id', group_keys=False).apply(interpolate_group)
 
         elif self.missing_values == "median":
             df = self._fill_missing_with_median(df)
-        
+
         else:
-            raise NotImplementedError(f"Missing value strategy '{self.missing_values}' is not implemented.")
+            raise NotImplementedError(f"Missing value strategy '{self.missing_values}' \
+                                      is not implemented.")
 
         remaining_nans = df[self.numeric_cols].isna().sum().sum()
         if remaining_nans > 0:
             if self.verbose:
                 print(f"Warning: {remaining_nans} NaN values remain after handling missing values")
             if self.missing_values != "keep":
-                raise ValueError(f"Missing value strategy '{self.missing_values}' failed to remove all NaNs")
+                raise ValueError(f"Missing value strategy '{self.missing_values}' failed\
+                                  to remove all NaNs")
         return df
 
 
@@ -464,7 +470,7 @@ class Preprocessor:
         - Find drifts and flatlines (eg. no long periods of constant values)
         Returns:
             DataFrame with outlier flags added.
-            is_outlier_gradient: True if gradient based outlier detection flagged the value, 
+            is_outlier_gradient: True if gradient based outlier detection flagged the value,
                                 combining both gradient exceedings and drift/flatline detection
             is_outlier_threshold: True if threshold based outlier detection flagged the value
             is_outlier: True if any outlier flag is set
@@ -522,7 +528,7 @@ class Preprocessor:
         for col, (lower, upper) in ABSOLUTE_THRESHOLDS.items():
             if col not in df.columns:
                 continue
-    
+
             # boolean masks
             mask_low = df[col] < lower
             mask_high = df[col] > upper
@@ -550,7 +556,8 @@ class Preprocessor:
         # store index-aligned list in columns
         df["threshold_too_low"] = [too_low_map[idx] for idx in df.index]
         df["threshold_too_high"] = [too_high_map[idx] for idx in df.index]
-        df["is_outlier_threshold_cols"] = df.apply(lambda row: list(set(row["threshold_too_low"] + row["threshold_too_high"])), axis=1)
+        df["is_outlier_threshold_cols"] = df.apply(lambda row: list(set(row["threshold_too_low"] + \
+                                                                row["threshold_too_high"])), axis=1)
 
         if self.verbose:
             print("\nThreshold Exceeding Stats:")
@@ -596,8 +603,8 @@ class Preprocessor:
 
     def _flag_outliers_gradient_thresholds(self, group):
         """
-        Flag outliers based on sudden changes (gradients) in the data that exceed manually defined thresholds.
-        This method computes the absolute gradient per column and flags values where the
+        Flag outliers based on sudden changes (gradients) in the data that exceed manually defined 
+        thresholds. This method computes the absolute gradient per column and flags values where the
         gradient exceeds a predefined threshold.
         Stores:
         - is_outlier_gr_ex (bool)
@@ -615,10 +622,10 @@ class Preprocessor:
         for col in self.numeric_cols:
             if col not in df.columns or col in ['dataset_id', 'turbine_id', 'timestamp', 'status_type_id']:
                 continue
-                
+
             # Compute gradient for the current column relative to the previous timestamp
-            # Only consider gradients where the previous timestamp is not longer ago than 30minutes earlier.
-            # If the previous timestamp is further in the past (e.g. due to missing rows),
+            # Only consider gradients where the previous timestamp is not longer ago than 30min
+            # earlier. If the previous timestamp is further in the past (e.g. due to missing rows),
             # mark as invalid and do not consider for gradient-based outlier detection.
             # NaNs are replaced via forward-fill for gradient computation.
             if 'time_stamp' in df.index.names:
@@ -645,17 +652,15 @@ class Preprocessor:
             mask_exceeded = (gradient.abs() > threshold) & (~invalid)
             # one-dim, boolean numpy array for easier manipulation, aligned with df.index
             arr = mask_exceeded.reindex(df.index, fill_value=False).astype(bool).values.copy()
-            n = len(arr)
             # Find positions where gradient exceedings occur
             pos = np.flatnonzero(arr)
 
             # Case 0: No exceedings, continue to next column
             if pos.size == 0:
                 continue
-            
+
             # Case 1: A step in the data -> single gradient exceeding
-            elif pos.size == 1:
-                #print(f"Single gradient exceeding detected at index {df.index[pos[0]]} for column {col}.")
+            if pos.size == 1:
                 # Mark current point as outlier
                 # Note that potentially the neighboring points should also be marked as outliers
                 # in order to "flatten" the spike and allow a reasonable chenge in data
@@ -667,9 +672,6 @@ class Preprocessor:
             # if more than one exceeding, analyze the segments between exceedings
             else:
                 for start, end in zip(pos[:-1], pos[1:]):
-                    #print("Found positions of gradient exceedings at indices:", start, end)
-                    #print(f"Starttime: {df.index[start]}, Endtime: {df.index[end]}")
-                    
                     # Assert that start and end well defined
                     assert start <=end, "Error 1 in gradient exceeding positions."
                     assert end - start >= 1, "Error 2 in gradient exceeding positions."
@@ -679,7 +681,6 @@ class Preprocessor:
 
                         # Case 2: Isolated spike -> jump up + jump down
                         if (gradient.iloc[start] * gradient.iloc[end] < 0):
-                            #print("Isolated spike detected.")
                             # The outlier is the point in between the two gradient exceedings
                             arr[end] = False
                             arr[start] = True
@@ -691,10 +692,9 @@ class Preprocessor:
                             continue
                         # Case 1: A step in the data (two consecutive exceedings in same direction)
                         else:
-                            #print("Consecutive gradient exceedings in same direction detected, marking both as step.")
                             exceeded_type_map[df.index[start]] = [f"case1_step_{col}"]
                             continue
-                    
+
                     # compute interior (positions strictly between the two exceedings)
                     interior_len = end - start - 1
 
@@ -709,12 +709,12 @@ class Preprocessor:
                             #print("Short time between strong gradient changes detected.")
                             # The outliers are the point in between the two gradient exceedings
                             arr[start:end] = True
-                            arr[end] = False # update the original exceeding gradient to not be an outlier
+                            arr[end] = False # update the original exceeding gradient to not outlier
                             for i in range(start, end):
                                 exceeded_type_map[df.index[i]].append(f"case3_short_interior_{col}")
                             continue
 
-                        # Case 4: interior gradients are (almost) all zero — step/plateau or sensor fault
+                        # Case 4: interior gradients are (almost) all zero — plateau or sensor fault
                         # Mark as fault also if all but one interior gradient are zero.
                         elif len(interior) > 0:
                             # count interior gradients that are not "close to zero" (ignore NaNs)
@@ -724,19 +724,19 @@ class Preprocessor:
                             if non_zero_count <= 1:
                                 #print("Step function or sensor fault detected (almost all zeros).")
                                 arr[start:end] = True
-                                arr[end] = False # update the original exceeding gradient to not be an outlier
+                                arr[end] = False # update the original exceedin gradient to not outlier
                                 for i in range(start, end):
-                                    exceeded_type_map[df.index[i]].append(f"case4_step_function_or_sensor_fault_{col}") 
+                                    exceeded_type_map[df.index[i]].append(f"case4_step_function_or_sensor_fault_{col}")
                                 continue
-                            
-                        # If we check for an interior and find that the start is already marked as outlier,
-                        # we need not check the interior, as we already marked the start of the segment.
-                        # The end might still need to be marked in the next iteration.
+
+                        # If we check for an interior and find that the start is already marked as
+                        #  outlier, we need not check the interior, as we already marked the start 
+                        # of the segment. The end might still need to be marked in the next 
+                        # iteration.
                         elif arr[start-1]:
-                            #print("Skipping already marked start exceeding!")
-                            
                             # Case 1: A step in the data
-                            # Special case: if the end is the last exceeding gradient, we need to mark it as well
+                            # Special case: if the end is the last exceeding gradient, we need to mark 
+                            # it as well
                             # as there is no next iteration to check it. It belongs to case 1 then.
                             if end + 1 >= pos[-1]:
                                 #print(f"Marking last exceeding at index {df.index[end]} as step.")
@@ -745,12 +745,11 @@ class Preprocessor:
                             continue
 
                         # conservative fallback: mark the gradient exceedings only (similar to case 1)
-                        #print("Conservative fallback: marking only the gradient exceedings as outliers.")
                         arr[start] = True
                         arr[end] = True
                         exceeded_type_map[df.index[start]].append(f"case1_step_{col}")
                         exceeded_type_map[df.index[end]].append(f"case1_step_{col}")
-                        
+
             # Post-process: ensure isolated-spike/short-interior/step-function handling
             # did not leave a spurious 'case1_step_{col}' at the following timestamp.
             # Only remove a following 'case1_step' if it is clearly an artifact: the next
@@ -765,7 +764,7 @@ class Preprocessor:
                     for t in types:
                         if not isinstance(t, str):
                             continue
-                        # consider the patterns that should suppress a following single-step artifact
+                        #consider the patterns that should suppress a following single-step artifact
                         if t.startswith("case2_isolated_spike_"):
                             col_name = t[len("case2_isolated_spike_"):]
                         elif t.startswith("case3_short_interior_"):
@@ -784,18 +783,22 @@ class Preprocessor:
                             next_types = exceeded_type_map.get(next_idx, [])
 
                             # Determine whether next index contains only the single case1 artifact
-                            has_case1_for_col = any(isinstance(nt, str) and nt == f"case1_step_{col_name}" for nt in next_types)
+                            has_case1_for_col = any(isinstance(nt, str) and \
+                                                nt == f"case1_step_{col_name}" for nt in next_types)
                             # non-case1 entries present besides the matching case1 -> do not remove
-                            non_matching = [nt for nt in next_types if not (isinstance(nt, str) and nt == f"case1_step_{col_name}")]
+                            non_matching = [nt for nt in next_types if not \
+                                        (isinstance(nt, str) and nt == f"case1_step_{col_name}")]
 
                             if has_case1_for_col and len(non_matching) == 0:
                                 # clear arr at next position (do not mark as outlier)
                                 arr[next_pos] = False
                                 # remove matching case1 entries at the next index
-                                exceeded_type_map[next_idx] = [nt for nt in next_types if nt != f"case1_step_{col_name}"]
+                                exceeded_type_map[next_idx] = \
+                                    [nt for nt in next_types if nt != f"case1_step_{col_name}"]
                                 # remove column from exceeded_cols_map at next index if present
                                 if col_name in exceeded_cols_map.get(next_idx, []):
-                                    exceeded_cols_map[next_idx] = [c for c in exceeded_cols_map[next_idx] if c != col_name]
+                                    exceeded_cols_map[next_idx] = \
+                                        [c for c in exceeded_cols_map[next_idx] if c != col_name]
             except Exception as e:
                 if self.verbose:
                     print(f"Warning: Could not post-process gradient flagging: {e}")
@@ -821,17 +824,19 @@ class Preprocessor:
             else:
                 # Explode the list column to count per (dataset_id, column)
                 gradient_exceeded = df_stats["is_outlier_gr_ex_cols"].explode().dropna()
-                
+
                 if not gradient_exceeded.empty:
                     dataset_ids_gradient = gradient_exceeded.index.get_level_values("dataset_id")
                     gradient_exceeded_df = pd.DataFrame({
                         "dataset_id": dataset_ids_gradient,
                         "column": gradient_exceeded.values
                     })
-                    gradient_exceeded_counts = gradient_exceeded_df.groupby(["dataset_id", "column"]).size().reset_index(name="is_outlier_gr_ex_cols")
+                    gradient_exceeded_counts = gradient_exceeded_df\
+                        .groupby(["dataset_id", "column"])\
+                        .size().reset_index(name="is_outlier_gr_ex_cols")
                     display_result = gradient_exceeded_counts.sort_values(["dataset_id", "column"])
                     print(display_result.to_string(index=False))
-        
+
         return df
 
 
@@ -847,9 +852,10 @@ class Preprocessor:
         - is_outlier_drift_flat_cols (list of column names that exceeded)
         """
         df = group.copy()
-        
+
         # Get numeric columns to process
-        numeric = [c for c in self.numeric_cols if c not in ['dataset_id', 'turbine_id', 'timestamp', 'status_type_id']]
+        numeric = [c for c in self.numeric_cols if c not in\
+                    ['dataset_id', 'turbine_id', 'timestamp', 'status_type_id']]
 
         # Initialize result columns and mappings for storing columns/types that are flagged
         df["is_outlier_drift"] = False
@@ -860,7 +866,7 @@ class Preprocessor:
         # Get existing gradient exceedings to ignore them in drift/flatline detection
         if "is_outlier_gr_ex" not in df.columns:
             df["is_outlier_gr_ex"] = False
-        gr_ex_outlier = df["is_outlier_gr_ex"] 
+        gr_ex_outlier = df["is_outlier_gr_ex"]
 
         # Buffer the gradient exceedings (needed as one point has two gradients...)
         gr_ex_buffer = gr_ex_outlier.shift(1, fill_value=False) | gr_ex_outlier | gr_ex_outlier.shift(-1, fill_value=False)
@@ -869,7 +875,7 @@ class Preprocessor:
         for col in numeric:
             if col not in df.columns:
                 continue
-                
+
             # Compute signed gradient (not absolute!) for drift detection
             gradient_signed = df[col].diff()
 
@@ -877,7 +883,8 @@ class Preprocessor:
             gradient_flatline = gradient_signed.abs()
             is_flatline_raw = (gradient_flatline == 0)
 
-            # Set is_flatline_raw to NaN where gradient exceedings are already marked (ignore these points)
+            # Set is_flatline_raw to NaN where gradient exceedings are already marked 
+            # (ignore these points)
             # Fill that NaNs forward and backward to create runs for flatline detection
             # This ensures a run is not interuppted by a spike outlier
             is_flatline_for_id = (
@@ -889,7 +896,8 @@ class Preprocessor:
             # Create run IDs for flatline runs
             run_id = (is_flatline_for_id != is_flatline_for_id.shift()).cumsum()
 
-            # Count the lenght of each flatline run (only counting valid flatline points, ignoring buffered gradient exceedings)
+            # Count the lenght of each flatline run (only counting valid flatline points
+            # ignoring buffered gradient exceedings)
             run_counts = (
                 is_flatline_raw.mask(gr_ex_buffer, np.nan)
                                .astype("Int64")
@@ -897,7 +905,8 @@ class Preprocessor:
             )
 
             # Create mask for flatlines exceeding the set limit
-            flatline_mask = is_flatline_raw & (~gr_ex_outlier) & (run_counts >= FLATLINE_THRESHOLDS.get(col))
+            flatline_mask = is_flatline_raw & (~gr_ex_outlier) & \
+                            (run_counts >= FLATLINE_THRESHOLDS.get(col))
 
             # Store results
             df.loc[flatline_mask, "is_outlier_flatline"] = True
@@ -947,8 +956,10 @@ class Preprocessor:
 
             # Store results
             df.loc[drift_mask, "is_outlier_drift"] = True
-            flagged_cols_map.update({idx: flagged_cols_map[idx] + [col] for idx in df.index[drift_mask]})
-            flagged_type_map.update({idx: flagged_type_map[idx] + [f"drift_{col}"] for idx in df.index[drift_mask]})
+            flagged_cols_map.update({idx: flagged_cols_map[idx] + \
+                                     [col] for idx in df.index[drift_mask]})
+            flagged_type_map.update({idx: flagged_type_map[idx] + \
+                                     [f"drift_{col}"] for idx in df.index[drift_mask]})
 
 
         # Store results in dataframe----------------------------------------------------------------
@@ -979,10 +990,9 @@ class Preprocessor:
         Handle outliers in the dataframe according to the specified strategy.
         Strategies:
         - 'flag_only': keeps all flagged outliers in the data
-        - 'drop': drop all rows that are marked as outliers if the outlier is not in one of the 
-                    specified columns to ignore: 
-                    wind_speed1_ms_avg, wind_speed2_ms_avg, wind_speed3_ms_avg, main_bearing_temp1_c_avg,
-                    main_bearing_temp2_c_avg, main_bearing_temp3_c_avg
+        - 'drop': drop all rows that are marked as outliers if the outlier is not in one of the
+                    specified columns to ignore: COLS_TO_IGNORE_ON_DROPPING_OUTLIER_ROWS
+        - 'set_to_nan': set outlier column values to NaN in the respective columns
         Returns:
             DataFrame with outliers handled according to the specified strategy.
 
@@ -991,42 +1001,43 @@ class Preprocessor:
         if self.outlier_handling == 'flag_only':
             if self.verbose:
                 n_outliers = df["is_outlier"].sum()
-                print(f"\nOutlier Handling: 'flag_only' selected, keeping all {n_outliers} flagged outliers in the data.")
+                print(f"\nOutlier Handling: 'flag_only' selected, keeping all {n_outliers} \
+                      flagged outliers in the data.")
             return df
-        
+
         # set outliers to nan
         if self.outlier_handling == "set_to_nan":
             # Track nan settings per dataset_id
             set_to_nan_stats = []
-            
+
             def set_outlier_to_nan_group(group):
                 dataset_id = group.index.get_level_values("dataset_id")[0]
                 n_before_nans = group[self.numeric_cols].isna().sum().sum()
-                
+
                 # For each row that is marked as outlier, set the specific columns to NaN
                 for idx in group.index[group["is_outlier"]]:
                     # Get the list of columns that caused the outlier flag
                     outlier_cols = group.loc[idx, "is_outlier_cols"]
-                    
+
                     if isinstance(outlier_cols, list) and len(outlier_cols) > 0:
                         # Set only the problematic columns to NaN
                         for col in outlier_cols:
                             if col in group.columns:
                                 group.loc[idx, col] = np.nan
-                
+
                 n_after_nans = group[self.numeric_cols].isna().sum().sum()
                 n_set_to_nan = n_after_nans - n_before_nans
-                
+
                 set_to_nan_stats.append({
                     "dataset_id": dataset_id,
                     "values_set_to_nan": n_set_to_nan,
                     "outlier_rows": group["is_outlier"].sum()
                 })
-                
+
                 return group
 
             df = df.groupby("dataset_id", group_keys=False).apply(set_outlier_to_nan_group)
-            
+
             if self.verbose:
                 print("\nOutlier Handling: 'set_to_nan' - Values set to NaN per dataset_id:")
                 stats_df = pd.DataFrame(set_to_nan_stats)
@@ -1035,7 +1046,7 @@ class Preprocessor:
                     print("No values were set to NaN.")
                 else:
                     print(stats_df.to_string(index=False))
-            
+
             return df
 
 
@@ -1051,7 +1062,7 @@ class Preprocessor:
 
             # Track drops per dataset_id
             drop_stats = []
-            
+
             def drop_outliers_group(group):
                 dataset_id = group.index.get_level_values("dataset_id")[0]
                 n_before_group = len(group)
@@ -1067,7 +1078,7 @@ class Preprocessor:
 
             n_before = len(df)
             df = df.groupby("dataset_id", group_keys=False).apply(drop_outliers_group)
-            
+
             if self.verbose:
                 print("\nRows dropped per dataset_id:")
                 drop_stats_df = pd.DataFrame(drop_stats)
@@ -1078,6 +1089,7 @@ class Preprocessor:
                     print(drop_stats_df.to_string(index=False))
 
         else:
-            raise NotImplementedError(f"Outlier handling strategy '{self.outlier_handling}' is not implemented.")
+            raise NotImplementedError(f"Outlier handling strategy '{self.outlier_handling}' \
+                                      is not implemented.")
 
         return df

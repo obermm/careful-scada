@@ -75,7 +75,7 @@ GRADIENT_THRESHOLD_TEST_CASES = [
     (12, [20] + [5]*5, "wind_speed1_ms_avg", 1, "start spike down"),
     (12, [5]*5 + [20], "outside_temp_c_avg", 1, "end spike up"),
 
-    # Case 2: 
+    # Case 2:
     # true isolated spike -> jump up + jump down => 1 flagged data point in between
     (21, [5]*5 + [20] + [5]*5, "wind_speed1_ms_avg", 1, "isolated spike up"),
     (22, [5]*5 + [-10] + [5]*5, "outside_temp_c_avg", 1, "isolated spike down"),
@@ -85,7 +85,7 @@ GRADIENT_THRESHOLD_TEST_CASES = [
     (25, [5, 49, 5, 5, 5], "wind_speed1_ms_avg", 1, "single spike up"),
     (26, [10, -49, 49, -49, 40, 10], "outside_temp_c_avg", 4, "four spikes"),
 
-    # Case 3: 
+    # Case 3:
     # less than 2 hours or less of interior points between strong gradient changes
     # short interior -> code fills entire interval between up and down (inclusive up to 12 datapoints)
     (31, [5]*5 + [20]*5 + [5]*5, "wind_speed1_ms_avg", 5, "short interior"),
@@ -110,13 +110,13 @@ GRADIENT_THRESHOLD_TEST_CASES = [
     (55, [5]*5 + [20] + [25]*7 + [30]*5 + [5] + [30]*2, "wind_speed1_ms_avg", 2, "combination single spike up + spike"),
     (56, [5]*5 + [20] + [5]*7 + [8] + [6]*7 + [30]*5, "wind_speed1_ms_avg", 2, "combination single spike up + spike"),
 
-    (57, [50]*5 + [50+mb_threshold+1] + [60+mb_threshold+1] + [55]*5 , "main_bearing_temp2_c_avg", 2, "combination step + spike"),    
+    (57, [50]*5 + [50+mb_threshold+1] + [60+mb_threshold+1] + [55]*5 , "main_bearing_temp2_c_avg", 2, "combination step + spike"),
     (58, [50]*5 + [50+mb_threshold+1] + [50+mb_threshold+2]*3 + [50]*5 , "main_bearing_temp2_c_avg", 4, "combination step + short interior"),
     (59, [50]*5 + [50+mb_threshold+1] + [50+mb_threshold+2]*3 + [40]*1 + [50]*5 , "main_bearing_temp2_c_avg", 5, "combination step + short interior"),
 
     (60, [50]*5 + [30]*2 + [50]*1 + [50]*2 + [30]*2 + [50]*1 + [51]*5 , "main_bearing_temp2_c_avg", 7, "combination step + short interior"),
     (61, [50]*5 + [30]*2 + [50]*5 + [51]*5 + [52]*5 + [30]*2 + [50]*1 + [51]*5 , "main_bearing_temp2_c_avg", 4, "combination step + long interior"),
-    
+
     # When spikes are close together, the algorithm groups them as "short interior" pattern
     (80, [5] + [20]*2 + [5] + [21]*2 + [5] + [22]*2 + [5] + [23]*2 + [5]*20, "wind_speed1_ms_avg", 11, "dense spikes - alternating pattern"),
     (81, [5]*3 + [25, 5, 26, 5, 27, 5, 28, 5, 29, 5] + [5]*20, "wind_speed1_ms_avg", 9, "dense spikes - scattered"),
@@ -163,7 +163,7 @@ def test_drift_and_flatline_detection(ds_id, values, col, expected_count, case):
     p = Preprocessor(wind_farm="A",
                     numeric_cols=[col],
                     verbose=False)
-    
+
     out = p._flag_outliers(group)
     assert flagged_count(out, flag_col="is_outlier_drift_flat") == expected_count, f"{case}: expected {expected_count}, got {flagged_count(out, flag_col='is_outlier_drift_flat')}"
     if expected_count > 0:
@@ -202,7 +202,7 @@ INTEGRATED_OUTLIER_FLAGGING_TEST_CASES = [
     (12, [20] + [5]*5, "wind_speed1_ms_avg", 1, "start spike down"),
     (12, [5]*5 + [20], "outside_temp_c_avg", 1, "end spike up"),
 
-    # Case 2: 
+    # Case 2:
     # true isolated spike -> jump up + jump down => 1 flagged data point in between
     (21, [5]*5 + [20] + [5]*5, "wind_speed1_ms_avg", 1, "isolated spike up"),
     (22, [5]*5 + [-10] + [5]*5, "outside_temp_c_avg", 1, "isolated spike down"),
@@ -211,7 +211,7 @@ INTEGRATED_OUTLIER_FLAGGING_TEST_CASES = [
     (24, [5]*5 + [8] + [5]*5, "outside_temp_c_avg", 0, "isolated spike up below threshold"),
     (25, [5, 49, 5, 5, 5], "wind_speed1_ms_avg", 1, "single spike up"),
 
-    # Case 3: 
+    # Case 3:
     # less than 2 hours or less of interior points between strong gradient changes
     # short interior -> code fills entire interval between up and down (inclusive up to 12 datapoints)
     (31, [5]*5 + [20]*5 + [5]*5, "wind_speed1_ms_avg", 5, "short interior"),
@@ -236,7 +236,7 @@ INTEGRATED_OUTLIER_FLAGGING_TEST_CASES = [
     (55, [5]*5 + [20] + [25]*7 + [30]*5 + [5] + [30]*2, "wind_speed1_ms_avg", 2, "combination single spike up + spike"),
     (56, [5]*5 + [20] + [5]*5 + [6]*7 + [5] + [30]*5, "wind_speed1_ms_avg", 2, "combination single spike up + spike"),
 
-    (57, [50]*5 + [50+mb_threshold+1] + [50+mb_threshold*2]*1 + [55]*5 , "main_bearing_temp2_c_avg", 2, "combination step + spike"),    
+    (57, [50]*5 + [50+mb_threshold+1] + [50+mb_threshold*2]*1 + [55]*5 , "main_bearing_temp2_c_avg", 2, "combination step + spike"),
     (58, [50]*5 + [50+mb_threshold+1] + [50+mb_threshold+2]*3 + [50]*5 , "main_bearing_temp2_c_avg", 4, "combination step + short interior"),
     (59, [50]*5 + [50+mb_threshold+1] + [50+mb_threshold+2]*3 + [40]*1 + [50]*5 , "main_bearing_temp2_c_avg", 5, "combination step + short interior"),
 
@@ -269,7 +269,7 @@ def test_integrated_outlier_flagging(ds_id, values, col, expected_count, case):
     p = Preprocessor(wind_farm="A",
                      numeric_cols=[col],
                      verbose=True)
-    
+
     out = p._flag_outliers(group)
     assert flagged_count(out, flag_col="is_outlier") == expected_count, f"{case}: expected {expected_count}, got {flagged_count(out, flag_col='is_outlier')}"
     if expected_count > 0:

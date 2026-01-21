@@ -1,9 +1,9 @@
 """
 Centralized threshold definitions for the preprocessing steps.
-Tests and the preprocessor import the thresholds from central definition. 
+Tests and the preprocessor import the thresholds from central definition.
 
 Notes:
-21.01.26: The defined thresholds are based on best guesses from me and visual data inspection. 
+21.01.26: The defined thresholds are based on best guesses from me and visual data inspection.
 TODO: Discuss with domain expert from Alterric.
 """
 # These thresholds are used in the preprocessing module to identify outliers in SCADA data.
@@ -31,13 +31,13 @@ COLS_TO_IGNORE_ON_DROPPING_OUTLIER_ROWS = [
 ]
 
 
-# Absolute value thresholds 
+# Absolute value thresholds
 # in units of the sensor measurements
 ABSOLUTE_THRESHOLDS = {
     'outside_temp_c_avg': (-50, 50),
     'rotor_speed_rpm_avg': (-0.05, 30),  # allow small negative values as I observed them in real data
     'active_power_kWh': (-100, 5000),
-    'wind_speed1_ms_avg': (0, 50), 
+    'wind_speed1_ms_avg': (0, 50),
     'wind_speed2_ms_avg': (0, 50),
     'wind_speed3_ms_avg': (0, 50),
     'main_bearing_temp1_c_avg': (0, 80),

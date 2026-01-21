@@ -20,7 +20,7 @@ class DataLoader():
         # Get the absolute path to the project root
         base_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.join(base_dir, "..")
-    
+
         # Construct absolute path to datasets
         self.path = os.path.join(project_root, f"dat/raw/Wind Farm {self.farm_name}/datasets")
 
@@ -30,7 +30,7 @@ class DataLoader():
             self.rename_map = json.load(f)
 
     def load(self) -> pd.DataFrame:
-        """Full loading pipeline: 
+        """Full loading pipeline:
         - load raw data
         - unify units
         - standardize column names
@@ -91,7 +91,7 @@ class DataLoader():
 
         print(f"Loaded {len(df_list)} datasets. Columns loaded: {sorted(df.columns.tolist())}")
         return df
-    
+
     @abstractmethod
     def unify_units(self, df: pd.DataFrame) -> pd.DataFrame:
         """Each Dataset (A, B, C) comes in potentially different units for some sensors"""
@@ -116,7 +116,7 @@ class DataLoader():
 
     def train_test_split(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Splits the DataFrame into training and testing based on the train_test column provided 
+        Splits the DataFrame into training and testing based on the train_test column provided
         by the authors of CARE dataset.
         """
         df = df.copy()
@@ -124,7 +124,7 @@ class DataLoader():
             raise ValueError("Empty DataFrame passed to train_test_split.")
         if 'train_test' not in df.columns:
             raise ValueError("train_test column not found in DataFrame.")
-        
+
         df_train = df[df['train_test'] == 'train']
         df_test = df[df['train_test'] == 'prediction']
 
@@ -141,7 +141,7 @@ class FarmALoader(DataLoader):
 
     def __init__(self):
         self.farm_name = 'A'
-        super().__init__() 
+        super().__init__()
 
     def unify_units(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
@@ -159,7 +159,7 @@ class FarmBLoader(DataLoader):
 
     def __init__(self):
         self.farm_name = 'B'
-        super().__init__() 
+        super().__init__()
 
     def unify_units(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
@@ -174,7 +174,7 @@ class FarmCLoader(DataLoader):
 
     def __init__(self):
         self.farm_name = 'C'
-        super().__init__() 
+        super().__init__()
 
     def unify_units(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()

@@ -20,7 +20,7 @@ from care_scada.preprocessing import Preprocessor
 
 df_normal = pd.DataFrame({
     "dataset_id": ["1", "1", "1", "1", "1"],
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20",
                                   "2022-01-01 00:30", "2022-01-01 00:40"]),
     "wind_speed1_ms_avg": [5, 10, 15, 20, 25],
     "status_type_id": [0, 0, 0, 0,0],
@@ -29,7 +29,7 @@ df_normal = pd.DataFrame({
 
 df_2 = pd.DataFrame({
     "dataset_id": ["1", "1", "1", "1", "1"],
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20",
                                   "2022-01-01 00:30", "2022-01-01 00:40"]),
     "wind_speed1_ms_avg": [5, 10, 15, 20, 25],
     "status_type_id": [0, 2, 0, 3, 0],
@@ -37,7 +37,7 @@ df_2 = pd.DataFrame({
 
 df_2_removed = pd.DataFrame({
     "dataset_id": ["1",  "1", "1", "1"],
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00",  "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00",  "2022-01-01 00:20",
                                   "2022-01-01 00:30", "2022-01-01 00:40"]),
     "wind_speed1_ms_avg": [5, 15, 20, 25],
     "status_type_id": [0, 0, 3, 0],
@@ -45,7 +45,7 @@ df_2_removed = pd.DataFrame({
 
 df_23_removed = pd.DataFrame({
     "dataset_id": ["1",  "1", "1"],
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00",  "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00",  "2022-01-01 00:20",
                                 "2022-01-01 00:40"]),
     "wind_speed1_ms_avg": [5, 15, 25],
     "status_type_id": [0, 0, 0],
@@ -71,14 +71,14 @@ def test_remove_status(input_df, remove_status, expected_df):
 ####################################################################################################
 df_complete = pd.DataFrame({
     "dataset_id": ["1"] * 6,
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20",
                                   "2022-01-01 00:30", "2022-01-01 00:40", "2022-01-01 00:50"]),
     "wind_speed1_ms_avg": [5, 10, 15, 20, 25, 30]
 }).set_index(["dataset_id", "time_stamp"])
 
 df_numeric_cols = pd.DataFrame({
     "dataset_id": ["1"] * 6,
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20",
                                   "2022-01-01 00:30", "2022-01-01 00:40", "2022-01-01 00:50"]),
     "wind_speed1_ms_avg": [5, 10, 15, 20, 25, 30],
     "wind_speed2_ms_avg": [5, 10, 15, 20, 25, 30],
@@ -105,14 +105,14 @@ def test_numeric_cols(input_df, expected_numeric_cols):
 
 df_unique = pd.DataFrame({
     "dataset_id": ["1", "1", "1", "1", "1"],
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20",
                                   "2022-01-01 00:30", "2022-01-01 00:40"]),
     "wind_speed1_ms_avg": [5, 10, 15, 20, 25]
 }).set_index(["dataset_id", "time_stamp"])
 
 df_duplicate = pd.DataFrame({
     "dataset_id": ["1", "1", "1", "1", "1"],
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:10", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:10",
                                   "2022-01-01 00:20", "2022-01-01 00:30"]),
     "wind_speed1_ms_avg": [5, 10, 10, 20, 25]
 }).set_index(["dataset_id", "time_stamp"])
@@ -125,7 +125,7 @@ df_duplicate_removed = pd.DataFrame({
 
 df_triplicate = pd.DataFrame({
     "dataset_id": ["1", "1", "1", "1", "1", "1"],
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:10", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:10",
                                   "2022-01-01 00:10", "2022-01-01 00:20", "2022-01-01 00:30"]),
     "wind_speed1_ms_avg": [5, 10, 10, 10, 20, 25]
 }).set_index(["dataset_id", "time_stamp"])
@@ -179,21 +179,21 @@ def test_uniqueness_check(input_df, expected_df):
 
 df_incomplete = pd.DataFrame({
     "dataset_id": ["1"] * 4,
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10",
                                   "2022-01-01 00:30", "2022-01-01 00:50"]),
     "wind_speed1_ms_avg": [5, 10, 20, 30]
 }).set_index(["dataset_id", "time_stamp"])
 
 df_incomplete_filled = pd.DataFrame({
     "dataset_id": ["1"] * 6,
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20",
                                   "2022-01-01 00:30", "2022-01-01 00:40", "2022-01-01 00:50"]),
     "wind_speed1_ms_avg": [5, 10, np.nan, 20, np.nan, 30]
 }).set_index(["dataset_id", "time_stamp"])
 
 df_duplicate_removed_filled = pd.DataFrame({
     "dataset_id": ["1", "1", "1", "1"],
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10", "2022-01-01 00:20",
                                   "2022-01-01 00:30"]),
     "wind_speed1_ms_avg": [5, np.nan, 20, 25]
 }).set_index(["dataset_id", "time_stamp"])
@@ -220,14 +220,14 @@ COMPLETENESS_TEST_CASES = [
 def test_completeness_check(input_df, expected_df):
     preprocessor = Preprocessor()
     out_df = preprocessor._apply_completeness(input_df)
-    pd.testing.assert_frame_equal(out_df, expected_df)  
+    pd.testing.assert_frame_equal(out_df, expected_df)
 
 ####################################################################################################
 # Test Filtering and Completeness Checks ###########################################################
 ####################################################################################################
 df_2_removed_filled = pd.DataFrame({
     "dataset_id": ["1",  "1", "1", "1", "1"],
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10",  "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10",  "2022-01-01 00:20",
                                   "2022-01-01 00:30", "2022-01-01 00:40"]),
     "wind_speed1_ms_avg": [5, np.nan, 15, 20, 25],
     "status_type_id": [0, np.nan, 0, 3, 0],
@@ -235,7 +235,7 @@ df_2_removed_filled = pd.DataFrame({
 
 df_23_removed_filled = pd.DataFrame({
     "dataset_id": ["1",  "1", "1", "1", "1"],
-    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10",  "2022-01-01 00:20", 
+    "time_stamp": pd.to_datetime(["2022-01-01 00:00", "2022-01-01 00:10",  "2022-01-01 00:20",
                                   "2022-01-01 00:30", "2022-01-01 00:40"]),
     "wind_speed1_ms_avg": [5, np.nan, 15, np.nan, 25],
     "status_type_id": [0, np.nan, 0, np.nan, 0],
