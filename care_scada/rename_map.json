@@ -1,0 +1,67 @@
+{
+  "time_stamp": {
+    "A": ["time_stamp"],
+    "B": ["time_stamp"],
+    "C": ["time_stamp"]
+  },
+  "asset_id": {
+    "A": ["asset_id"],
+    "B": ["asset_id"],
+    "C": ["asset_id"]
+  },
+  "id": {
+    "A": ["id"],
+    "B": ["id"],
+    "C": ["id"]
+  },
+  "train_test": {
+    "A": ["train_test"],
+    "B": ["train_test"],
+    "C": ["train_test"]
+  },
+  "status_type_id": {
+    "A": ["status_type_id"],
+    "B": ["status_type_id"],
+    "C": ["status_type_id"]
+  },
+  "outside_temp_c_avg": {
+    "A": ["sensor_0_avg"],
+    "B": ["sensor_8_avg"],
+    "C": ["sensor_177_avg"]
+  },
+  "rotor_speed_rpm_avg": {
+    "A": ["sensor_52_avg"],
+    "B": ["sensor_25_avg"],
+    "C": ["sensor_144_avg"]
+  },
+  "active_power_kWh": {
+    "A": ["sensor_50"],
+    "B": ["sensor_3_avg"],
+    "C": ["power_6_avg"]
+  },
+  "wind_speed1_ms_avg": {
+    "A": ["wind_speed_3_avg"],
+    "B": ["wind_speed_59_avg"],
+    "C": ["wind_speed_235_avg"]
+  },
+    "wind_speed2_ms_avg": {
+    "A": ["wind_speed_4_avg"],
+    "B": ["wind_speed_60_avg"],
+    "C": ["wind_speed_237_avg"]
+  },
+    "wind_speed3_ms_avg": {
+    "B": ["wind_speed_61_avg"],
+    "C": ["wind_speed_236_avg"]
+  },
+  "main_bearing_temp1_c_avg": {
+    "B": ["sensor_51_avg"],
+    "C": ["sensor_196_avg"]
+  },
+  "main_bearing_temp2_c_avg": {
+    "B": ["sensor_52_avg"],
+    "C": ["sensor_197_avg"]
+  },
+  "main_bearing_temp3_c_avg": {
+    "C": ["sensor_198_avg"]
+  }
+}
