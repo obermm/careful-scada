@@ -1,28 +1,42 @@
-"""Defines the base loader parent class."""
+"""Defines the DataLoader class for loading CARE SCADA datasets."""
 
 import json
 import os
 from pathlib import Path
 import pandas as pd
-from abc import abstractmethod
 
-# Parent DataLoader class ##########################################################################
+# DataLoader class #################################################################################
 class DataLoader():
     """
-    Base class for all farm specific data loaders.
-    Defines common methods for loading, unit unification, and column renaming.
-    Child classes must implement the `unify_units` method as unit conventions differ per farm.
+    Data loader for CARE SCADA datasets.
+    Loads data from a specified farm, unifies units, and standardizes column names.
     """
 
+    FARM_UNIT_CONVERSIONS = {
+        'A': {'sensor_50': lambda x: x / 1000},  # Wh -> kWh conversion for Farm A
+        'B': {},  # No unit conversions needed for Farm B
+        'C': {}   # No unit conversions needed for Farm C
+    }
 
-    def __init__(self, rename_map_path="rename_map.json"):
+    def __init__(self, farm_name, data_path="dat/raw", rename_map_path="rename_map.json"):
+        """
+        Initialize the DataLoader for a specific farm.
+        Args:
+            farm_name (str): Name of the farm ('A', 'B', or 'C').
+            data_path (str): Path to folder containing CARE SCADA datasets.
+            rename_map_path (str): Relative path to JSON file with column mappings.
+        """
+        if farm_name not in ('A', 'B', 'C'):
+            raise ValueError(f"Invalid farm_name '{farm_name}'. Must be 'A', 'B', or 'C'.")
+
+        self.farm_name = farm_name
 
         # Get the absolute path to the project root
         base_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.join(base_dir, "..")
 
         # Construct absolute path to datasets
-        self.path = os.path.join(project_root, f"dat/raw/Wind Farm {self.farm_name}/datasets")
+        self.path = os.path.join(project_root, f"{data_path}/Wind Farm {self.farm_name}/datasets")
 
         # Load rename map from JSON (mapping raw to standard column names)
         schema_path = os.path.join(base_dir, rename_map_path)
@@ -92,10 +106,15 @@ class DataLoader():
         print(f"Loaded {len(df_list)} datasets. Columns loaded: {sorted(df.columns.tolist())}")
         return df
 
-    @abstractmethod
     def unify_units(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Each Dataset (A, B, C) comes in potentially different units for some sensors"""
-        pass
+        """Apply farm-specific unit conversions based on the farm_name."""
+        df = df.copy()
+        conversions = self.FARM_UNIT_CONVERSIONS.get(self.farm_name, {})
+        for column, conversion_func in conversions.items():
+            if column in df.columns:
+                df[column] = df[column].apply(conversion_func)
+        return df
+
 
 
     def standardize_column_names(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -130,52 +149,3 @@ class DataLoader():
 
         print(f"Train - Test ratio: {round(len(df_train)/len(df), 2)}.")
         return df_train, df_test
-
-
-# Farm specific DataLoader implementations #########################################################
-class FarmALoader(DataLoader):
-    """
-    Data loader for Wind Farm A.
-    Implements unit unification specific to Farm A.
-    """
-
-    def __init__(self):
-        self.farm_name = 'A'
-        super().__init__()
-
-    def unify_units(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy()
-
-        # active power comes in Wh -> convert to kWh
-        df["sensor_50"] = df["sensor_50"].div(1000)
-        return df
-
-
-class FarmBLoader(DataLoader):
-    """
-    Data loader for Wind Farm B.
-    Implements unit unification specific to Farm B.
-    """
-
-    def __init__(self):
-        self.farm_name = 'B'
-        super().__init__()
-
-    def unify_units(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy()
-        return df
-
-
-class FarmCLoader(DataLoader):
-    """
-    Data loader for Wind Farm C.
-    Implements unit unification specific to Farm C.
-    """
-
-    def __init__(self):
-        self.farm_name = 'C'
-        super().__init__()
-
-    def unify_units(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy()
-        return df
