@@ -31,10 +31,12 @@ def apply_uniqueness(df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame:
         # In this case, we keep the 28th (first occurrence) and drop the 29th (second occurrence).
         # (Instead of dropping both duplicates)
         if group.index.get_level_values('time_stamp').duplicated(keep='first').any():
-            duplicates_times = group.index.get_level_values('time_stamp')[group.index.get_level_values('time_stamp').duplicated(keep='first')]
+            duplicates_times = group.index.get_level_values('time_stamp')\
+                [group.index.get_level_values('time_stamp').duplicated(keep='first')]
 
             # Check if the duplicated timestamps include the full day of Feb 28th
-            feb_28 = pd.to_datetime(f"{duplicates_times.year[0]}-02-28" + " 00:00:00") + pd.to_timedelta(np.arange(0, 24*6)*10, unit='min')
+            feb_28 = pd.to_datetime(f"{duplicates_times.year[0]}-02-28" + " 00:00:00") \
+                + pd.to_timedelta(np.arange(0, 24*6)*10, unit='min')
 
             # check if all duplicates are on feb 28th
             if len(duplicates_times) == len(feb_28) and set(duplicates_times) == set(feb_28):

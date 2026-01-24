@@ -141,9 +141,12 @@ def flag_outliers_thresholds(df: pd.DataFrame, verbose: bool = True) -> pd.DataF
                 "dataset_id": dataset_ids_low,
                 "column": too_low.values
             })
-            too_low_df["min_threshold"] = too_low_df["column"].map(lambda col: ABSOLUTE_THRESHOLDS.get(col, (None, None))[0])
-            too_low_df["max_threshold"] = too_low_df["column"].map(lambda col: ABSOLUTE_THRESHOLDS.get(col, (None, None))[1])
-            too_low_counts = too_low_df.groupby(["dataset_id", "column", "min_threshold", "max_threshold"]).size().reset_index(name="too_low_count")
+            too_low_df["min_threshold"] = too_low_df["column"].map(lambda col: \
+                                                    ABSOLUTE_THRESHOLDS.get(col, (None, None))[0])
+            too_low_df["max_threshold"] = too_low_df["column"].map(lambda col: \
+                                                    ABSOLUTE_THRESHOLDS.get(col, (None, None))[1])
+            too_low_counts = too_low_df.groupby(["dataset_id", "column", "min_threshold", \
+                                        "max_threshold"]).size().reset_index(name="too_low_count")
 
             # too_high
             too_high = df_stats["threshold_too_high"].explode().dropna()
@@ -152,9 +155,12 @@ def flag_outliers_thresholds(df: pd.DataFrame, verbose: bool = True) -> pd.DataF
                 "dataset_id": dataset_ids_high,
                 "column": too_high.values
             })
-            too_high_df["min_threshold"] = too_high_df["column"].map(lambda col: ABSOLUTE_THRESHOLDS.get(col, (None, None))[0])
-            too_high_df["max_threshold"] = too_high_df["column"].map(lambda col: ABSOLUTE_THRESHOLDS.get(col, (None, None))[1])
-            too_high_counts = too_high_df.groupby(["dataset_id", "column", "min_threshold", "max_threshold"]).size().reset_index(name="too_high_count")
+            too_high_df["min_threshold"] = too_high_df["column"].map(lambda col: \
+                                                    ABSOLUTE_THRESHOLDS.get(col, (None, None))[0])
+            too_high_df["max_threshold"] = too_high_df["column"].map(lambda col: \
+                                                    ABSOLUTE_THRESHOLDS.get(col, (None, None))[1])
+            too_high_counts = too_high_df.groupby(["dataset_id", "column", "min_threshold", \
+                                        "max_threshold"]).size().reset_index(name="too_high_count")
 
             result = too_low_counts.merge(
                 too_high_counts,
@@ -164,7 +170,8 @@ def flag_outliers_thresholds(df: pd.DataFrame, verbose: bool = True) -> pd.DataF
 
             result = result.astype({"too_low_count": int, "too_high_count": int})
             result["allowed_range"] = "[" + result["min_threshold"].astype(str) + ", " + result["max_threshold"].astype(str) + "]"
-            display_result = result[["dataset_id", "column", "allowed_range", "too_low_count", "too_high_count"]].sort_values(["dataset_id", "column"])
+            display_result = result[["dataset_id", "column", "allowed_range", "too_low_count", \
+                                      "too_high_count"]].sort_values(["dataset_id", "column"])
             print(display_result.set_index("dataset_id").to_string())
 
     return df
@@ -199,7 +206,8 @@ def flag_outliers_gradient_thresholds(
 
     # Compute gradients for each numeric column
     for col in numeric_cols:
-        if col not in df.columns or col in ['dataset_id', 'turbine_id', 'timestamp', 'status_type_id']:
+        cols_to_skip = ['dataset_id', 'turbine_id', 'timestamp', 'status_type_id']
+        if col not in df.columns or col in cols_to_skip:
             continue
 
         # Compute gradient for the current column relative to the previous timestamp
@@ -242,7 +250,7 @@ def flag_outliers_gradient_thresholds(
         if pos.size == 1:
             # Mark current point as outlier
             # Note that potentially the neighboring points should also be marked as outliers
-            # in order to "flatten" the spike and allow a reasonable chenge in data
+            # in order to "flatten" the spike and allow a reasonable change in data
             arr[pos[0]] = True
             # note the type of exceeding
             exceeded_type_map[df.index[pos[0]]].append(f"case1_step_{col}")
@@ -324,7 +332,7 @@ def flag_outliers_gradient_thresholds(
                                 exceeded_type_map[df.index[end]].append(f"case1_step_{col}")
                             continue
 
-                        # conservative fallback: mark the gradient exceedings only (similar to case1)
+                        #conservative fallback: mark the gradient exceedings only (similar to case1)
                         arr[start] = True
                         arr[end] = True
                         exceeded_type_map[df.index[start]].append(f"case1_step_{col}")
@@ -543,7 +551,8 @@ def flag_outliers_drifts_flatlines(
         drift_mask_neg = has_negative & (run_counts_neg >= DRIFT_THRESHOLDS.get(col))
 
         # Combine positive and negative drift masks and ignore already marked outliers
-        drift_mask = (drift_mask_pos | drift_mask_neg) & (~gr_ex_outlier) & (~df["is_outlier_flatline"])
+        drift_mask = (drift_mask_pos | drift_mask_neg) & \
+                     (~gr_ex_outlier) & (~df["is_outlier_flatline"])
 
         # Store results
         df.loc[drift_mask, "is_outlier_drift"] = True

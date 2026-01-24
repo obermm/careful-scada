@@ -43,7 +43,6 @@ def handle_outliers(
         def set_outlier_to_nan_group(group):
             numeric_cols = group.select_dtypes(include=[np.number]).columns.tolist()
             numeric_cols = [col for col in numeric_cols if col not in ['asset_id', 'id']]
-            
             dataset_id = group.index.get_level_values("dataset_id")[0]
             n_before_nans = group[numeric_cols].isna().sum().sum()
 
