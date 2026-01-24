@@ -1,14 +1,17 @@
 """
 Centralized threshold definitions for the preprocessing steps.
-Tests and the preprocessor import the thresholds from central definition.
+These thresholds are used in the preprocessing module to identify outliers in SCADA data and 
+dictate the flagging and removal of outliers.
+Tests and the preprocessor import the thresholds from this central definition.
 
 Notes:
 21.01.26: The defined thresholds are based on best guesses from me and visual data inspection.
 TODO: Discuss with domain expert from Alterric.
 """
-# These thresholds are used in the preprocessing module to identify outliers in SCADA data.
-# The short interior threshold is used to identify short interiors between two strong gradient changes.
-# E.G if two stron gradient changes occur, with less thatn SHORT_INTERIOR_THRESHOLD samples in between,
+
+# The short interior threshold
+# It is used to identify short interiors between two strong gradient changes.
+# E.G if two strong gradient changes occur, with less than SHORT_INTERIOR_THRESHOLD samples in between,
 # the interior samples are also marked as outliers.
 SHORT_INTERIOR_THRESHOLD = 6  # 1 hour
 
@@ -17,7 +20,7 @@ SHORT_INTERIOR_THRESHOLD = 6  # 1 hour
 # To identify these missing value replacements, we define a maximum allowed number of consecutive zeros.
 # That number is applied for rarly zero sensors.
 MAX_CONSECUTIVE_ZEROS = 60  # 6 hours
-RARLEY_ZERO_SENSORS = ["outside_temp_c_avg", "main_bearing_temp1_c_avg",
+RARELY_ZERO_SENSORS = ["outside_temp_c_avg", "main_bearing_temp1_c_avg",
                     "main_bearing_temp2_c_avg", "main_bearing_temp3_c_avg"]
 
 
@@ -35,7 +38,7 @@ COLS_TO_IGNORE_ON_DROPPING_OUTLIER_ROWS = [
 # in units of the sensor measurements
 ABSOLUTE_THRESHOLDS = {
     'outside_temp_c_avg': (-50, 50),
-    'rotor_speed_rpm_avg': (-0.05, 30),  # allow small negative values as I observed them in real data
+    'rotor_speed_rpm_avg': (-0.05, 30),  # allow small negative values as observed  in real data
     'active_power_kWh': (-100, 5000),
     'wind_speed1_ms_avg': (0, 50),
     'wind_speed2_ms_avg': (0, 50),

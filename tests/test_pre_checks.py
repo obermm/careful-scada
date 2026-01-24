@@ -13,10 +13,16 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from care_scada.preprocessing import Preprocessor
+from care_scada.preprocessing.data_quality import apply_uniqueness, apply_completeness
 
 ####################################################################################################
 # Test remove status ###############################################################################
 ####################################################################################################
+
+def _remove_status_helper(df, remove_status):
+    """Helper function to test _remove_status from Preprocessor."""
+    p = Preprocessor(remove_status=remove_status, verbose=False)
+    return p._remove_status(df)
 
 df_normal = pd.DataFrame({
     "dataset_id": ["1", "1", "1", "1", "1"],
@@ -61,8 +67,7 @@ REMOVE_STATUS_TEST_CASES = [
 
 @pytest.mark.parametrize("input_df, remove_status, expected_df", REMOVE_STATUS_TEST_CASES)
 def test_remove_status(input_df, remove_status, expected_df):
-    preprocessor = Preprocessor(remove_status=remove_status)
-    out_df = preprocessor._remove_status(input_df)
+    out_df = _remove_status_helper(input_df, remove_status)
     pd.testing.assert_frame_equal(out_df, expected_df)
 
 
@@ -166,8 +171,7 @@ UNIQUENESS_TEST_CASES = [
 
 @pytest.mark.parametrize("input_df, expected_df", UNIQUENESS_TEST_CASES)
 def test_uniqueness_check(input_df, expected_df):
-    preprocessor = Preprocessor()
-    out_df = preprocessor._apply_uniqueness(input_df)
+    out_df = apply_uniqueness(input_df, verbose=False)
     print(out_df)
     pd.testing.assert_frame_equal(out_df, expected_df)
 
@@ -218,8 +222,7 @@ COMPLETENESS_TEST_CASES = [
 
 @pytest.mark.parametrize("input_df, expected_df", COMPLETENESS_TEST_CASES)
 def test_completeness_check(input_df, expected_df):
-    preprocessor = Preprocessor()
-    out_df = preprocessor._apply_completeness(input_df)
+    out_df = apply_completeness(input_df, verbose=False)
     pd.testing.assert_frame_equal(out_df, expected_df)
 
 ####################################################################################################
@@ -250,9 +253,8 @@ STATUS_COMPL_TEST_CASES = [
 
 @pytest.mark.parametrize("input_df, remove_status, expected_df", STATUS_COMPL_TEST_CASES)
 def test_remove_complete(input_df, remove_status, expected_df):
-    preprocessor = Preprocessor(remove_status=remove_status)
-    filtered_df = preprocessor._remove_status(input_df)
-    out_df = preprocessor._apply_completeness(filtered_df)
+    filtered_df = _remove_status_helper(input_df, remove_status)
+    out_df = apply_completeness(filtered_df, verbose=False)
     pd.testing.assert_frame_equal(out_df, expected_df)
 
 ####################################################################################################
@@ -270,8 +272,7 @@ UNIQ_COMPL_TEST_CASES = [
 ]
 @pytest.mark.parametrize("input_df, expected_df", UNIQ_COMPL_TEST_CASES)
 def test_both_checks(input_df, expected_df):
-    preprocessor = Preprocessor()
-    out_df_step1 = preprocessor._apply_uniqueness(input_df)
-    out_df_step2 = preprocessor._apply_completeness(out_df_step1)
+    out_df_step1 = apply_uniqueness(input_df, verbose=False)
+    out_df_step2 = apply_completeness(out_df_step1, verbose=False)
     pd.testing.assert_frame_equal(out_df_step2, expected_df)
 

@@ -13,6 +13,12 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from care_scada.preprocessing import Preprocessor
+from care_scada.preprocessing.outlier_detection import (
+    flag_outliers_thresholds,
+    flag_outliers_gradient_thresholds,
+    flag_outliers_drifts_flatlines,
+    flag_outliers
+)
 from care_scada.thresholds import DRIFT_THRESHOLDS, FLATLINE_THRESHOLDS, GRADIENT_THRESHOLDS
 
 def make_group(values, dataset_id="1", col="wind_speed1_ms_avg", start="2022-01-01 00:00:00", freq="10min"):
@@ -29,6 +35,8 @@ def flagged_cols_contains(out_df, colname, flag_col="is_outlier_gr_ex"):
     return any(isinstance(lst, list) and colname in lst for lst in flagged[f"{flag_col}_cols"])
 
 mb_threshold = GRADIENT_THRESHOLDS.get("main_bearing_temp2_c_avg")
+ws_threshold = GRADIENT_THRESHOLDS.get("wind_speed1_ms_avg")
+ot_threshold = GRADIENT_THRESHOLDS.get("outside_temp_c_avg")
 
 
 # Flagging for values that exceed absolute thresholds
@@ -53,8 +61,7 @@ THRESHOLD_TEST_CASES = [
 @pytest.mark.parametrize("ds_id, values, col, expected_count, case", THRESHOLD_TEST_CASES)
 def test_threshold_outlier_detection(ds_id, values, col, expected_count, case):
     group = make_group(values, dataset_id=str(ds_id), col=col)
-    p = Preprocessor(wind_farm="A", numeric_cols=[col], verbose=False)
-    out = p._flag_outliers_thresholds(group)
+    out = flag_outliers_thresholds(group, verbose=False)
 
     assert flagged_count(out, flag_col="is_outlier_threshold") == expected_count, f"{case}: expected {expected_count}, got {flagged_count(out, flag_col='is_outlier_threshold')}"
     if expected_count > 0:
@@ -69,11 +76,11 @@ GRADIENT_THRESHOLD_TEST_CASES = [
 
     # Case 1: single exceeding gradients (no interval to fill)
     # Case 1.1: interior point
-    (11, [5]*5 + [20] + [25]*5, "wind_speed1_ms_avg", 1, "single spike up"),
-    (11, [30]*5 + [10] + [5]*5, "outside_temp_c_avg", 1, "single spike down"),
+    (11, [5]*5 + [5+ws_threshold+1] + [25]*5, "wind_speed1_ms_avg", 1, "single spike up"),
+    (11, [30]*5 + [5-ot_threshold-1] + [5]*5, "outside_temp_c_avg", 1, "single spike down"),
     # Case 1.2: edge cases start/end point
-    (12, [20] + [5]*5, "wind_speed1_ms_avg", 1, "start spike down"),
-    (12, [5]*5 + [20], "outside_temp_c_avg", 1, "end spike up"),
+    (12, [20] + [20-ws_threshold-1]*5, "wind_speed1_ms_avg", 1, "start spike down"),
+    (12, [5]*5 + [5+ot_threshold+1], "outside_temp_c_avg", 1, "end spike up"),
 
     # Case 2:
     # true isolated spike -> jump up + jump down => 1 flagged data point in between
@@ -126,8 +133,7 @@ GRADIENT_THRESHOLD_TEST_CASES = [
 @pytest.mark.parametrize("ds_id, values, col, expected_count, case", GRADIENT_THRESHOLD_TEST_CASES)
 def test_gradient_threshold(ds_id, values, col, expected_count, case):
     group = make_group(values, dataset_id=str(ds_id), col=col)
-    p = Preprocessor(wind_farm="A", numeric_cols=[col], verbose=False)
-    out = p._flag_outliers_gradient_thresholds(group)
+    out = flag_outliers_gradient_thresholds(group, numeric_cols=[col], verbose=False)
 
     assert flagged_count(out) == expected_count, f"{case}: expected {expected_count}, got {flagged_count(out)}"
     if expected_count > 0:
@@ -154,17 +160,13 @@ DRIFT_AND_FLATLINE_TEST_CASES = [
     (70, [50]*6 + [70] + [50]*6, "main_bearing_temp2_c_avg", 0, "Short Flatline + spike up"),
     (71, [50]*20 + [70] + [50]*20, "main_bearing_temp2_c_avg", 0, "Flatline + spike up"),
     (72, np.arange(50, 60, 0.1).tolist() + [40] + np.arange(60, 65, 0.1).tolist() ,"main_bearing_temp2_c_avg", 0, "One long drift up, interuppted by Spike down"),
-    (73, np.arange(50, 60, 0.025).tolist() + [40] + np.arange(60, 65, 0.025).tolist() ,"main_bearing_temp2_c_avg", 599, "Two long drift ups + Spike down"),
+    (73, np.arange(50, 60, 0.01).tolist() + [40] + np.arange(60, 70, 0.01).tolist() ,"main_bearing_temp2_c_avg", 1999, "Two long drift ups + Spike down"),
 ]
 
 @pytest.mark.parametrize("ds_id, values, col, expected_count, case", DRIFT_AND_FLATLINE_TEST_CASES)
 def test_drift_and_flatline_detection(ds_id, values, col, expected_count, case):
     group = make_group(values, dataset_id=str(ds_id), col=col)
-    p = Preprocessor(wind_farm="A",
-                    numeric_cols=[col],
-                    verbose=False)
-
-    out = p._flag_outliers(group)
+    out = flag_outliers_drifts_flatlines(group, numeric_cols=[col], verbose=False)
     assert flagged_count(out, flag_col="is_outlier_drift_flat") == expected_count, f"{case}: expected {expected_count}, got {flagged_count(out, flag_col='is_outlier_drift_flat')}"
     if expected_count > 0:
         assert flagged_cols_contains(out, col, flag_col="is_outlier_drift_flat"), f"{case}: expected column name in gradient_exceeded_cols"
@@ -266,11 +268,7 @@ INTEGRATED_OUTLIER_FLAGGING_TEST_CASES = [
 @pytest.mark.parametrize("ds_id, values, col, expected_count, case", INTEGRATED_OUTLIER_FLAGGING_TEST_CASES)
 def test_integrated_outlier_flagging(ds_id, values, col, expected_count, case):
     group = make_group(values, dataset_id=str(ds_id), col=col)
-    p = Preprocessor(wind_farm="A",
-                     numeric_cols=[col],
-                     verbose=True)
-
-    out = p._flag_outliers(group)
+    out = flag_outliers(group, numeric_cols=[col], verbose=True)
     assert flagged_count(out, flag_col="is_outlier") == expected_count, f"{case}: expected {expected_count}, got {flagged_count(out, flag_col='is_outlier')}"
     if expected_count > 0:
         assert flagged_cols_contains(out, col, flag_col="is_outlier"), f"{case}: expected column name in is_outlier_cols"

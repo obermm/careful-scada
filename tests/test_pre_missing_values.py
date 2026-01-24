@@ -12,6 +12,8 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from care_scada.preprocessing import Preprocessor
+from care_scada.preprocessing.missing_values import handle_missing_values
+
 ####################################################################################################
 # Tests missing value detection for Windfarms B & C, where missing values have been set to zero by the data provider
 ####################################################################################################
@@ -102,12 +104,14 @@ DETECT_MISSING_VALUES_TEST_CASES = [
 
 @pytest.mark.parametrize("input_df, expected_df", DETECT_MISSING_VALUES_TEST_CASES)
 def test_detect_missing_values(input_df, expected_df):
-    p = Preprocessor(wind_farm="B",
-                     numeric_cols=["outside_temp_c_avg", "rotor_speed_rpm_avg", "active_power_kWh"],
-                     missing_values="keep",
-                     verbose=False)
-
-    output_df = p._handle_missing_values(input_df)
+    numeric_cols = ["outside_temp_c_avg", "rotor_speed_rpm_avg", "active_power_kWh"]
+    output_df = handle_missing_values(
+        input_df,
+        farm_name="B",
+        numeric_cols=numeric_cols,
+        strategy="keep",
+        verbose=False
+    )
 
     pd.testing.assert_frame_equal(output_df, expected_df)
 
@@ -129,12 +133,14 @@ HANDLE_MISSING_VALUES_TEST_CASES = [
 ]
 @pytest.mark.parametrize("input_df, strategy, expected_df", HANDLE_MISSING_VALUES_TEST_CASES)
 def test_handle_missing_values(input_df, strategy, expected_df):
-    p = Preprocessor(wind_farm="B",
-                     numeric_cols=["outside_temp_c_avg", "rotor_speed_rpm_avg", "active_power_kWh"],
-                     missing_values=strategy,
-                     verbose=False)
-
-    output_df = p._handle_missing_values(input_df)
+    numeric_cols = ["outside_temp_c_avg", "rotor_speed_rpm_avg", "active_power_kWh"]
+    output_df = handle_missing_values(
+        input_df,
+        farm_name="B",
+        numeric_cols=numeric_cols,
+        strategy=strategy,
+        verbose=False
+    )
 
     pd.testing.assert_frame_equal(output_df, expected_df)
 
