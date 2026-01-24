@@ -1,3 +1,4 @@
-from .data_loader import FarmALoader, FarmBLoader, FarmCLoader, DataLoader
-
-__all__ = ['FarmALoader', 'FarmBLoader', 'FarmCLoader', 'DataLoader']
+"""
+CARE SCADA package initialization.
+"""
+from .data_loader import DataLoader

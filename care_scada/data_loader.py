@@ -68,14 +68,14 @@ class DataLoader():
 
         # Only load raw column names that appear in the rename map for this farm
         allowed_raw = set()
-        for std_name, farms in self.rename_map.items():
+        for _, farms in self.rename_map.items():
             if self.farm_name in farms:
                 allowed_raw.update(farms[self.farm_name])
 
         if not allowed_raw:
             raise ValueError(f"No column mappings found for farm '{self.farm_name}' in rename_map.")
-        else:
-            print(f"Loading raw data for farm '{self.farm_name}' with {len(allowed_raw)} allowed columns.")
+        print(f"Loading raw data for farm '{self.farm_name}'\
+                with {len(allowed_raw)} allowed columns.")
 
         csv_files = list(Path(self.path).glob('*.csv'))
         df_list = []
@@ -85,11 +85,14 @@ class DataLoader():
                 # only columns present and in allowed_raw are read
                 turbine_df = pd.read_csv(file,
                                         sep=';',
-                                        usecols=lambda c: c in allowed_raw, # use a callable so missing columns don't raise error
+                                        # use a callable so missing columns don't raise error
+                                        usecols=lambda c: c in allowed_raw,
                                         parse_dates=['time_stamp'])
             except Exception as e:
-                print(f"Warning: Could not read {file} with usecols because {e}. Falling back to full read and filtering.")
-                # fallback: read full file and filter columns (safe but uses more memory for the single file)
+                print(f"Warning: Could not read {file} with usecols because {e}. \
+                      Falling back to full read and filtering.")
+                # fallback: read full file and filter columns
+                # (safe but uses more memory for the single file)
                 turbine_df = pd.read_csv(file, sep=';')
                 cols = [c for c in turbine_df.columns if c in allowed_raw]
                 turbine_df = turbine_df[cols]
