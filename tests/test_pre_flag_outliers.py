@@ -180,12 +180,12 @@ INTEGRATED_OUTLIER_FLAGGING_TEST_CASES = [
     (1, [10]*10, "outside_temp_c_avg", 0, "no outliers"),
 
     # Case 1: Single outlier
-    (11, [5, 5, 51, 5, 5], "wind_speed1_ms_avg", 1, "single high outlier"),
-    (12, [10, 10, -51, 10, 10], "outside_temp_c_avg", 1, "single low outlier"),
+    (11, [5, 5, 5+ws_threshold+1, 5, 5], "wind_speed1_ms_avg", 1, "single high outlier"),
+    (12, [10, 10, 10 - ot_threshold - 1, 10, 10], "outside_temp_c_avg", 1, "single low outlier"),
 
     # Case 2: Multiple outliers
-    (21, [5, 100, 5, -50, 5, 200], "wind_speed1_ms_avg", 3, "multiple outliers"),
-    (22, [10, -51, 10, 51, 10, -51], "outside_temp_c_avg", 3, "multiple outliers"),
+    (21, [10, 10+ws_threshold+1, 10, 10 - ws_threshold - 1, 10, 10+ws_threshold+1, 10], "wind_speed1_ms_avg", 3, "multiple outliers"),
+    (22, [10, 10 - ot_threshold - 1, 10, 10 + ot_threshold + 1, 10, 10 - ot_threshold - 1, 10], "outside_temp_c_avg", 3, "multiple outliers"),
 
     # Case 3: Outliers below threshold -> no flags due to gradient thresholding
     (31, [5, 49, 5, 5, 5], "wind_speed1_ms_avg", 1, "single spike up"),

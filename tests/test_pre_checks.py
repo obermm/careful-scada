@@ -9,6 +9,9 @@ import pytest
 import pandas as pd
 import numpy as np
 
+# Add the parent directory to the path so we can import care_scada
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from care_scada.preprocessing import Preprocessor
 from care_scada.preprocessing.data_quality import apply_uniqueness, apply_completeness
 
