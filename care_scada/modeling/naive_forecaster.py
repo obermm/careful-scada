@@ -54,3 +54,46 @@ class NaiveForecaster(TimeSeriesModel):
 
     def reset(self):
         self.last_train_value = None
+
+
+class ConstantForecaster(TimeSeriesModel):
+    """
+    Constant forecaster.
+    Predicts y_t as constant value equal to the last observed training value.
+    """
+
+    def __init__(self):
+        self.last_train_value: Optional[
+            pd.Series] = None
+
+    def fit(self, train_df: pd.DataFrame, target_col: str):
+        """
+        No fitting needed for constant forecaster.
+        """
+        if target_col is None:
+            raise ValueError("target_col must be specified for ConstantForecaster.")
+        if target_col not in train_df.columns:
+            raise ValueError(f"target_col '{target_col}' not found in train_df columns.")
+        self.constant_value = train_df[target_col].iloc[-1]
+
+    def predict(self, test_df: pd.DataFrame, target_col: str) -> pd.DataFrame:
+        """
+        Predicts each time step using the constant value.
+        """
+        if target_col is None:
+            raise ValueError("target_col must be specified for ConstantForecaster.")
+        if target_col not in test_df.columns:
+            raise ValueError(f"target_col '{target_col}' not found in test_df columns.")
+
+        preds = [self.constant_value] * len(test_df)
+
+        preds_df = pd.DataFrame(
+            preds,
+            index=test_df.index,
+            columns=[target_col]
+        )
+
+        return preds_df
+
+    def reset(self):
+        self.constant_value = None

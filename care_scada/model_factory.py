@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
 
 class TimeSeriesModel(ABC):
     """
@@ -61,6 +62,44 @@ class ModelFactory:
             # Lazy import to avoid circular dependency with NaiveForecaster -> TimeSeriesModel
             from care_scada.modeling.naive_forecaster import NaiveForecaster
             return NaiveForecaster(**kwargs)
+        
+        if model_name == "constant_forecaster":
+            from care_scada.modeling.naive_forecaster import ConstantForecaster
+            return ConstantForecaster(**kwargs)
+        
+        if model_name == "random_forest":
+            class RandomForestTimeSeriesModel(TimeSeriesModel):
+                def __init__(self, **rf_kwargs):
+                    self.model = RandomForestRegressor(n_estimators=10, **rf_kwargs)
+                    self.target_col = None
+
+                def fit(self, train_df: pd.DataFrame, target_col: str):
+                    self.target_col = target_col
+                    # Handle MultiIndex: select only numeric feature columns, excluding target
+                    feature_cols = [col for col in train_df.columns 
+                                   if col != target_col and train_df[col].dtype in ['float64', 'int64', 'float32', 'int32']]
+                    X = train_df[feature_cols].reset_index(drop=True)
+                    y = train_df[target_col].reset_index(drop=True)
+                    self.model.fit(X, y)
+
+                def predict(self, test_df: pd.DataFrame, target_col: str) -> pd.DataFrame:
+                    # Handle MultiIndex: select only numeric feature columns, excluding target
+                    feature_cols = [col for col in test_df.columns 
+                                   if col != target_col and test_df[col].dtype in ['float64', 'int64', 'float32', 'int32']]
+                    X_test = test_df[feature_cols].reset_index(drop=True)
+                    
+                    preds = self.model.predict(X_test)
+                    preds_df = pd.DataFrame(
+                        preds,
+                        index=test_df.index,
+                        columns=[target_col]
+                    )
+                    return preds_df
+
+                def reset(self):
+                    self.model = RandomForestRegressor()
+    
+            return RandomForestTimeSeriesModel(**kwargs)
 
         if model_name == "arima":
             raise NotImplementedError("ARIMAModel is not implemented yet.")
