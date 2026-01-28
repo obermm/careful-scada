@@ -5,8 +5,6 @@ Strategies for dealing with detected outliers.
 
 import pandas as pd
 import numpy as np
-from ..thresholds import COLS_TO_IGNORE_ON_DROPPING_OUTLIER_ROWS
-
 
 def handle_outliers(
     df: pd.DataFrame,
@@ -20,8 +18,7 @@ def handle_outliers(
         df: DataFrame with outlier flags (is_outlier, is_outlier_cols)
         strategy: Strategy for handling outliers
             - 'flag_only': keeps all flagged outliers in the data
-            - 'drop': drop all rows that are marked as outliers if the outlier is not in one of the
-                        specified columns to ignore: COLS_TO_IGNORE_ON_DROPPING_OUTLIER_ROWS
+            - 'drop': drop all rows that contain an outlier
             - 'set_to_nan': set outlier column values to NaN in the respective columns
         verbose: If True, print statistics
     Returns:
@@ -83,14 +80,6 @@ def handle_outliers(
 
 
     if strategy == 'drop':
-        def is_outlier_effective(row):
-            if not row["is_outlier"]:
-                return False
-            # check if any of the outlier columns is not in the ignore list
-            for col in row["is_outlier_cols"]:
-                if col not in COLS_TO_IGNORE_ON_DROPPING_OUTLIER_ROWS:
-                    return True
-            return False
 
         # Track drops per dataset_id
         drop_stats = []
@@ -98,15 +87,15 @@ def handle_outliers(
         def drop_outliers_group(group):
             dataset_id = group.index.get_level_values("dataset_id")[0]
             n_before_group = len(group)
-            effective_outlier_mask = group.apply(is_outlier_effective, axis=1)
-            n_dropped_group = effective_outlier_mask.sum()
+            outlier_mask = group["is_outlier"]
+            n_dropped_group = outlier_mask.sum()
             drop_stats.append({
                 "dataset_id": dataset_id,
                 "rows_before": n_before_group,
                 "rows_dropped": n_dropped_group,
                 "percent_dropped": (n_dropped_group / n_before_group) * 100 if n_before_group > 0 else 0
             })
-            return group[~effective_outlier_mask]
+            return group[outlier_mask]
 
         df = df.groupby("dataset_id", group_keys=False).apply(drop_outliers_group)
 

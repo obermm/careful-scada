@@ -120,7 +120,7 @@ class Preprocessor:
             strategy=self.missing_values,
             verbose=self.verbose
         )
-        df = flag_outliers(df, numeric_cols=self.numeric_cols, verbose=self.verbose)
+        df = flag_outliers(df, verbose=self.verbose)
 
         # remove outliers except for sensors that measure the same underlying latent variable
         # e.g. different wind measurements

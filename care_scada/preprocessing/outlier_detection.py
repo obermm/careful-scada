@@ -5,19 +5,20 @@ Implements threshold-based, gradient-based, and drift/flatline detection.
 
 import pandas as pd
 import numpy as np
-from ..thresholds import (
-    ABSOLUTE_THRESHOLDS,
-    GRADIENT_THRESHOLDS,
-    DRIFT_THRESHOLDS,
-    FLATLINE_THRESHOLDS,
-    SHORT_INTERIOR_THRESHOLD,
-    GRADIENT_TOL,
-)
+from care_scada.sensor_config import get_sensor_config
 
+# Load thresholds from sensor config
+_config = get_sensor_config()
+ABSOLUTE_THRESHOLDS = _config.get_thresholds('absolute')
+GRADIENT_THRESHOLDS = _config.get_thresholds('gradient')
+DRIFT_THRESHOLDS = _config.get_thresholds('drift')
+FLATLINE_THRESHOLDS = _config.get_thresholds('flatline')
+SHORT_INTERIOR_THRESHOLD = _config.get_setting('short_interior_threshold')
+GRADIENT_TOL = _config.get_setting('gradient_tolerance')
+RARELY_ZERO_SENSORS = _config.get_rarely_zero_sensors()
 
 def flag_outliers(
     df: pd.DataFrame,
-    numeric_cols: list,
     verbose: bool = True
 ) -> pd.DataFrame:
     """
@@ -29,7 +30,6 @@ def flag_outliers(
     
     Args:
         df: DataFrame with MultiIndex (dataset_id, time_stamp)
-        numeric_cols: List of numeric column names
         verbose: If True, print statistics
     Returns:
         DataFrame with outlier flags added:
@@ -43,12 +43,12 @@ def flag_outliers(
 
     # apply gradient based method
     df = df.groupby("dataset_id", group_keys=False).apply(
-        lambda group: flag_outliers_gradient_thresholds(group, numeric_cols, verbose)
+        lambda group: flag_outliers_gradient_thresholds(group, verbose)
     )
 
     # Find drifts and flatlines
     df = df.groupby("dataset_id", group_keys=False).apply(
-        lambda group: flag_outliers_drifts_flatlines(group, numeric_cols, verbose)
+        lambda group: flag_outliers_drifts_flatlines(group, verbose)
     )
 
     # Combine the results
@@ -179,7 +179,6 @@ def flag_outliers_thresholds(df: pd.DataFrame, verbose: bool = True) -> pd.DataF
 
 def flag_outliers_gradient_thresholds(
     group: pd.DataFrame,
-    numeric_cols: list,
     verbose: bool = True
 ) -> pd.DataFrame:
     """
@@ -189,7 +188,6 @@ def flag_outliers_gradient_thresholds(
     
     Args:
         group: DataFrame group for a single dataset_id
-        numeric_cols: List of numeric column names
         verbose: If True, print statistics
     Returns:
         DataFrame with outlier flags:
@@ -204,10 +202,9 @@ def flag_outliers_gradient_thresholds(
     exceeded_cols_map = {idx: [] for idx in df.index}
     exceeded_type_map = {idx: [] for idx in df.index}
 
-    # Compute gradients for each numeric column
-    for col in numeric_cols:
-        cols_to_skip = ['dataset_id', 'turbine_id', 'timestamp', 'status_type_id']
-        if col not in df.columns or col in cols_to_skip:
+    # Compute gradients for each column with defined threshold thats in the dataframe
+    for col, threshold in GRADIENT_THRESHOLDS.items():
+        if col not in df.columns:
             continue
 
         # Compute gradient for the current column relative to the previous timestamp
@@ -226,11 +223,6 @@ def flag_outliers_gradient_thresholds(
 
         # Time difference to the last valid observation
         time_diff = times_series - last_valid_time
-
-        # Get threshold for the current column
-        threshold = GRADIENT_THRESHOLDS.get(col, None)
-        if threshold is None:
-            continue
 
         # invalid where time gap is larger than 30 minutes
         invalid = (time_diff >= pd.Timedelta(minutes=30))
@@ -431,7 +423,6 @@ def flag_outliers_gradient_thresholds(
 
 def flag_outliers_drifts_flatlines(
     group: pd.DataFrame,
-    numeric_cols: list,
     verbose: bool = True
 ) -> pd.DataFrame:
     """
@@ -441,7 +432,6 @@ def flag_outliers_drifts_flatlines(
     
     Args:
         group: DataFrame group for a single dataset_id
-        numeric_cols: List of numeric column names
         verbose: If True, print statistics
     Returns:
         DataFrame with outlier flags:
@@ -451,10 +441,6 @@ def flag_outliers_drifts_flatlines(
         - is_outlier_drift_flat_cols (list of column names that exceeded)
     """
     df = group.copy()
-
-    # Get numeric columns to process
-    numeric = [c for c in numeric_cols if c not in\
-                ['dataset_id', 'turbine_id', 'timestamp', 'status_type_id']]
 
     # Initialize result columns and mappings for storing columns/types that are flagged
     df["is_outlier_drift"] = False
@@ -470,8 +456,8 @@ def flag_outliers_drifts_flatlines(
     # Buffer the gradient exceedings (needed as one point has two gradients...)
     gr_ex_buffer = gr_ex_outlier.shift(1, fill_value=False) | gr_ex_outlier | gr_ex_outlier.shift(-1, fill_value=False)
 
-    # Compute gradient (for each numeric column
-    for col in numeric:
+    # Compute gradient (for each column with defined thresholds in the dataframe)
+    for col, threshold  in FLATLINE_THRESHOLDS.items():
         if col not in df.columns:
             continue
 
@@ -505,7 +491,7 @@ def flag_outliers_drifts_flatlines(
 
         # Create mask for flatlines exceeding the set limit
         flatline_mask = is_flatline_raw & (~gr_ex_outlier) & \
-                        (run_counts >= FLATLINE_THRESHOLDS.get(col))
+                        (run_counts >= threshold)
 
         # Store results
         df.loc[flatline_mask, "is_outlier_flatline"] = True

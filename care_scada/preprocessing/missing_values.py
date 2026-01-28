@@ -4,8 +4,12 @@ Missing value handling for SCADA data preprocessing.
 
 import pandas as pd
 import numpy as np
-from ..thresholds import MAX_CONSECUTIVE_ZEROS, RARELY_ZERO_SENSORS
+from care_scada.sensor_config import get_sensor_config
 
+# Load settings from sensor config
+_config = get_sensor_config()
+MAX_CONSECUTIVE_ZEROS = _config.get_setting('max_consecutive_zeros')
+RARELY_ZERO_SENSORS = _config.get_rarely_zero_sensors()
 
 def handle_missing_values(
     df: pd.DataFrame,
