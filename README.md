@@ -18,10 +18,8 @@ With open source data and open source code for preprocessing you can start buili
 ### Included
 - Data Loader: Loading and unifying units + naming conventions of CARE SCADA data
 - Preprocessor: Outlier detection and handling
-
-### Not included
-- Model training
-- Turbine-specific control logic
+- The Loading and Preprocessing are managed through a central sensor_config.yaml 
+- Modelling Framwork: Base Models like naive forecasters are implemented to serve as example.
 
 ## Installation (development)
 ```bash

@@ -1,4 +1,6 @@
-"""Sensor configuration management for th eCARE SCADA datasets."""
+"""Sensor configuration management for th eCARE SCADA datasets.
+Defintions of sensor mappings, unit conversions, and validation threshold are found in 
+sensor_config.yaml and managed through this module."""
 
 import math
 import os
