@@ -8,6 +8,12 @@ settings:
   short_interior_threshold: 6  # 1 hour
   max_consecutive_zeros: 60  # 6 hours
   gradient_tolerance: 0.01
+  
+  # Preprocessor settings
+  preprocessing:
+    missing_values_strategy: "linear_interpolation"  # Options: "keep", "drop", "linear_interpolation", "median"
+    outlier_handling: "flag_only"  # Options: "flag_only", "set_to_nan", "drop"
+    remove_status: None  # Remove none
 
 
 sensors:
@@ -137,7 +143,7 @@ sensors:
       B: ["sensor_10_avg"]
       C: ["sensor_76_avg"]
     thresholds:
-      absolute: [0, 90]
+      absolute: [-0.05, 95]
       gradient: 30
       flatline: 1008  # 7 days
       drift: 72

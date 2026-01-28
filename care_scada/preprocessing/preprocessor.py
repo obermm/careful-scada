@@ -6,6 +6,7 @@ Coordinates data cleaning, feature engineering, and outlier handling.
 import pandas as pd
 import numpy as np
 
+from ..sensor_config import get_sensor_config
 from .data_quality import apply_uniqueness, apply_completeness
 from .missing_values import handle_missing_values
 from .outlier_detection import flag_outliers
@@ -22,9 +23,12 @@ class Preprocessor:
         farm_name: Wind farm name ("A", "B", "C") to apply farm specific preprocessing rules.
         dataset_id: If specified, only process this dataset_id (faster than processing all!)
         remove_status: List of status_type_id values to remove from the data.
+                      If None, uses default from sensor_config.yaml.
         missing_values: Strategy for handling missing values 
                         ("keep", "drop", "linear_interpolation", "median").
+                        If None, uses default from sensor_config.yaml.
         outlier_handling: Strategy for handling outliers ("flag_only", "set_to_nan", "drop").
+                         If None, uses default from sensor_config.yaml.
         numeric_cols: List of numeric columns to consider. If None, auto-detects numeric columns.
         verbose: If True, print information and statistics during preprocessing.
     """
@@ -34,22 +38,31 @@ class Preprocessor:
         farm_name='A',
         dataset_id=None,
         remove_status = None,
-        missing_values = "keep",
-        outlier_handling = "flag_only",
+        missing_values = None,
+        outlier_handling = None,
         numeric_cols = None,
         verbose=True
     ):
+        # Load settings from config
+        config = get_sensor_config()
+        settings = config.get_preprocessing_settings()
+        
         self.farm_name = farm_name
         self.dataset_id = str(dataset_id) if dataset_id is not None else None
         self.numeric_cols = numeric_cols
+        
+        # Apply settings if not specified
+        if remove_status is None:
+            remove_status = settings['remove_status']
         if isinstance(remove_status, list):
             self.remove_status = remove_status
         elif isinstance(remove_status, int):
             self.remove_status = [remove_status]
         else:
             self.remove_status = None
-        self.missing_values = missing_values
-        self.outlier_handling = outlier_handling
+
+        self.missing_values = missing_values if missing_values is not None else settings['missing_values_strategy']
+        self.outlier_handling = outlier_handling if outlier_handling is not None else settings['outlier_handling']
         self.verbose = verbose
 
     # =====================================================================

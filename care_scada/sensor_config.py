@@ -141,6 +141,24 @@ class SensorConfig:
         return self.settings.get(setting_name, default)
 
 
+    def get_preprocessing_settings(self):
+        """
+        Get preprocessing configuration.
+        
+        Returns:
+            dict: Dictionary with preprocessing settings:
+                - missing_values_strategy: strategy for handling missing values
+                - outlier_handling: strategy for handling outliers
+                - remove_status: list of status IDs to remove
+        """
+        preprocessing = self.settings.get('preprocessing', {})
+        return {
+            'missing_values_strategy': preprocessing.get('missing_values_strategy', 'keep'),
+            'outlier_handling': preprocessing.get('outlier_handling', 'flag_only'),
+            'remove_status': preprocessing.get('remove_status', None)
+        }
+
+
     def get_all_allowed_columns(self, farm_name):
         """
         Get all raw column names that should be loaded for a farm.
