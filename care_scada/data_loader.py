@@ -1,9 +1,9 @@
 """Defines the DataLoader class for loading CARE SCADA datasets."""
 
-import json
 import os
 from pathlib import Path
 import pandas as pd
+from .sensor_config import SensorConfig
 
 # DataLoader class #################################################################################
 class DataLoader():
@@ -12,19 +12,13 @@ class DataLoader():
     Loads data from a specified farm, unifies units, and standardizes column names.
     """
 
-    FARM_UNIT_CONVERSIONS = {
-        'A': {'sensor_50': lambda x: x / 1000},  # Wh -> kWh conversion for Farm A
-        'B': {},  # No unit conversions needed for Farm B
-        'C': {}   # No unit conversions needed for Farm C
-    }
-
-    def __init__(self, farm_name, data_path="dat/raw", rename_map_path="rename_map.json"):
+    def __init__(self, farm_name, data_path="dat/raw", config_path=None):
         """
         Initialize the DataLoader for a specific farm.
         Args:
             farm_name (str): Name of the farm ('A', 'B', or 'C').
             data_path (str): Path to folder containing CARE SCADA datasets.
-            rename_map_path (str): Relative path to JSON file with column mappings.
+            config_path (str): Path to sensor_config.yaml. If None, uses default location.
         """
         if farm_name not in ('A', 'B', 'C'):
             raise ValueError(f"Invalid farm_name '{farm_name}'. Must be 'A', 'B', or 'C'.")
@@ -38,10 +32,8 @@ class DataLoader():
         # Construct absolute path to datasets
         self.path = os.path.join(project_root, f"{data_path}/Wind Farm {self.farm_name}/datasets")
 
-        # Load rename map from JSON (mapping raw to standard column names)
-        schema_path = os.path.join(base_dir, rename_map_path)
-        with open(schema_path, "r") as f:
-            self.rename_map = json.load(f)
+        # Load sensor configuration
+        self.sensor_config = SensorConfig(config_path)
 
     def load(self) -> pd.DataFrame:
         """Full loading pipeline:
@@ -60,26 +52,32 @@ class DataLoader():
     def load_raw(self) -> pd.DataFrame:
         """
         Load raw CSV files into a single DataFrame with MultiIndex (dataset_id, time_stamp).
-        Reads only columns present in the rename map for the specific farm.
+        Reads only columns present in the sensor config for the specific farm.
         Returns:
             pd.DataFrame: Combined DataFrame of all datasets with raw column names.
         """
 
-        # Only load raw column names that appear in the rename map for this farm
-        allowed_raw = set()
-        for _, farms in self.rename_map.items():
-            if self.farm_name in farms:
-                allowed_raw.update(farms[self.farm_name])
+        # Get all allowed raw column names from sensor config
+        allowed_raw = self.sensor_config.get_all_allowed_columns(self.farm_name)
 
         if not allowed_raw:
-            raise ValueError(f"No column mappings found for farm '{self.farm_name}' in rename_map.")
-        print(f"Loading raw data for farm '{self.farm_name}'\
-                with {len(allowed_raw)} allowed columns.")
+            raise ValueError(f"No column mappings found for farm '{self.farm_name}' in sensor config.")
+        print(f"Loading raw data for farm '{self.farm_name}' with {len(allowed_raw)} allowed columns.")
 
         csv_files = list(Path(self.path).glob('*.csv'))
         df_list = []
-        for file in csv_files:
+        
+        # Check the first file to see which columns actually exist
+        # Helpful for debugging missing columns in allowed_raw
+        if csv_files:
+            first_file = csv_files[0]
+            sample_df = pd.read_csv(first_file, sep=';', nrows=0)
+            actual_cols = set(sample_df.columns)
+            missing_in_csv = allowed_raw - actual_cols
+            if missing_in_csv:
+                print(f"Debug: {len(missing_in_csv)} expected columns missing in CSV: {sorted(missing_in_csv)}")
 
+        for file in csv_files:
             try:
                 # only columns present and in allowed_raw are read
                 turbine_df = pd.read_csv(file,
@@ -109,27 +107,37 @@ class DataLoader():
         return df
 
     def unify_units(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply farm-specific unit conversions based on the farm_name."""
+        """Apply farm-specific unit conversions using sensor config."""
         df = df.copy()
-        conversions = self.FARM_UNIT_CONVERSIONS.get(self.farm_name, {})
-        for column, conversion_func in conversions.items():
-            if column in df.columns:
-                df[column] = df[column].apply(conversion_func)
+
+        # Apply conversions to raw columns (before renaming)
+        rename_map = self.sensor_config.get_rename_map(self.farm_name)
+        reverse_map = {v: k for k, v in rename_map.items()}
+        conversions = self.sensor_config.get_unit_conversions(self.farm_name)
+
+        for std_column, conversion_func in conversions.items():
+            # Find the raw column name for this standardized column
+            raw_column = reverse_map.get(std_column)
+            if raw_column and raw_column in df.columns:
+                df[raw_column] = df[raw_column].apply(conversion_func)
+
         return df
 
-
-
     def standardize_column_names(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Rename columns to unified naming scheme using the rename_map."""
+        """Rename columns to unified naming scheme using sensor config."""
         df = df.copy()
-        rename_dict = {}
-        for std_name, farms in self.rename_map.items():
-            if self.farm_name in farms:
-                for raw_name in farms[self.farm_name]:
-                    if raw_name in df.columns:
-                        rename_dict[raw_name] = std_name
+        rename_dict = self.sensor_config.get_rename_map(self.farm_name)
+
+        # Only keep mappings for columns that actually exist
+        rename_dict = {k: v for k, v in rename_dict.items() if k in df.columns}
 
         # Apply the renaming
         df.rename(columns=rename_dict, inplace=True)
+
+        # Check for columns that weren't renamed
+        original_cols = set(df.columns) - set(rename_dict.values())
+        if original_cols:
+            print(f"Warning: {len(original_cols)} columns were not renamed: {sorted(original_cols)}")
+
         print(f"Renamed {len(rename_dict)} columns.")
         return df
