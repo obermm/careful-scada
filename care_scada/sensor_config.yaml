@@ -1,0 +1,287 @@
+# Sensor Configuration - unified schema and thresholds
+# Combines farm-specific mappings (anonymized sensor names to standardized names) 
+# with domain-specific validation rules
+
+
+# Global preprocessing settings
+settings:
+  short_interior_threshold: 6  # 1 hour
+  max_consecutive_zeros: 60  # 6 hours
+  gradient_tolerance: 0.01
+
+
+sensors:
+  outside_temp_c_avg:
+    description: "Outside temperature (°C)"
+    unit: "°C"
+    farm_mappings:
+      A: ["sensor_0_avg"]
+      B: ["sensor_8_avg"]
+      C: ["sensor_177_avg"]
+    thresholds:
+      absolute: [-50, 50]
+      gradient: 8  # max change per 10min
+      flatline: 144  # max 24 hours
+      drift: 72  # max 12 hours
+    rarely_zero: true
+    
+  rotor_speed_rpm_avg:
+    description: "Rotor speed (RPM)"
+    unit: "RPM"
+    farm_mappings:
+      A: ["sensor_52_avg"]
+      B: ["sensor_25_avg"]
+      C: ["sensor_144_avg"]
+    thresholds:
+      absolute: [-0.05, 30]
+      gradient: 20
+      flatline: 1008  # 7 days
+      drift: 72
+    
+  active_power_kWh:
+    description: "Active power output"
+    unit: "kWh"
+    farm_mappings:
+      A: ["sensor_50"]
+      B: ["sensor_3_avg"]
+      C: ["power_6_avg"]
+    unit_conversions:
+      A: "Wh_to_kWh"  # divide by 1000
+    thresholds:
+      absolute: [-100, 5000]
+      gradient: 2000
+      flatline: 1008
+      drift: 72
+    
+  wind_speed1_ms_avg:
+    description: "Wind speed sensor 1"
+    unit: "m/s"
+    farm_mappings:
+      A: ["wind_speed_3_avg"]
+      B: ["wind_speed_59_avg"]
+      C: ["wind_speed_235_avg"]
+    thresholds:
+      absolute: [0, 50]
+      gradient: 12
+      flatline: 36
+      drift: 72
+    
+  wind_speed2_ms_avg:
+    description: "Wind speed sensor 2"
+    unit: "m/s"
+    farm_mappings:
+      A: ["wind_speed_4_avg"]
+      B: ["wind_speed_60_avg"]
+      C: ["wind_speed_237_avg"]
+    thresholds:
+      absolute: [0, 50]
+      gradient: 12
+      flatline: 36
+      drift: 72
+    
+  wind_speed3_ms_avg:
+    description: "Wind speed sensor 3"
+    unit: "m/s"
+    farm_mappings:
+      B: ["wind_speed_61_avg"]
+      C: ["wind_speed_236_avg"]
+    thresholds:
+      absolute: [0, 50]
+      gradient: 12
+      flatline: 36
+      drift: 72
+    
+  main_bearing_temp1_c_avg:
+    description: "Main bearing temperature 1"
+    unit: "°C"
+    farm_mappings:
+      B: ["sensor_51_avg"]
+      C: ["sensor_196_avg"]
+    thresholds:
+      absolute: [0, 80]
+      gradient: 6
+      flatline: 144
+      drift: 576  # 4 days
+    rarely_zero: true
+    
+  main_bearing_temp2_c_avg:
+    description: "Main bearing temperature 2"
+    unit: "°C"
+    farm_mappings:
+      B: ["sensor_52_avg"]
+      C: ["sensor_197_avg"]
+    thresholds:
+      absolute: [0, 80]
+      gradient: 6
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+    
+  main_bearing_temp3_c_avg:
+    description: "Main bearing temperature 3"
+    unit: "°C"
+    farm_mappings:
+      C: ["sensor_198_avg"]
+    thresholds:
+      absolute: [0, 80]
+      gradient: 6
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+    
+  pitch_angle_deg_avg:
+    description: "Pitch angle (degrees)"
+    unit: "°"
+    farm_mappings:
+      A: ["sensor_5_avg"]
+      B: ["sensor_10_avg"]
+      C: ["sensor_76_avg"]
+    thresholds:
+      absolute: [0, 90]
+      gradient: 30
+      flatline: 1008  # 7 days
+      drift: 72
+    
+  gearbox_bearing_temp1_c_avg:
+    description: "Gearbox bearing temperature 1"
+    unit: "°C"
+    farm_mappings:
+      A: ["sensor_11_avg"]
+      B: ["sensor_34_avg"]
+    thresholds:
+      absolute: [0, 100]
+      gradient: 8
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+    
+  gearbox_bearing_temp2_c_avg:
+    description: "Gearbox bearing temperature 2"
+    unit: "°C"
+    farm_mappings:
+      B: ["sensor_35_avg"]
+    thresholds:
+      absolute: [0, 100]
+      gradient: 8
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+    
+  gearbox_bearing_temp3_c_avg:
+    description: "Gearbox bearing temperature 3"
+    unit: "°C"
+    farm_mappings:
+      B: ["sensor_36_avg"]
+    thresholds:
+      absolute: [0, 100]
+      gradient: 8
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+    
+  gearbox_bearing_temp4_c_avg:
+    description: "Gearbox bearing temperature 4"
+    unit: "°C"
+    farm_mappings:
+      B: ["sensor_37_avg"]
+    thresholds:
+      absolute: [0, 100]
+      gradient: 8
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+    
+  gearbox_oil_temp1_c_avg:
+    description: "Gearbox oil temperature 1"
+    unit: "°C"
+    farm_mappings:
+      A: ["sensor_12_avg"]
+      B: ["sensor_38_avg"]
+      C: ["sensor_189_avg"]
+    thresholds:
+      absolute: [0, 80]
+      gradient: 6
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+    
+  gearbox_oil_temp2_c_avg:
+    description: "Gearbox oil temperature 2"
+    unit: "°C"
+    farm_mappings:
+      C: ["sensor_190"]
+    thresholds:
+      absolute: [0, 80]
+      gradient: 6
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+    
+  gen_bearing_temp1_c_avg:
+    description: "Generator bearing temperature 1"
+    unit: "°C"
+    farm_mappings:
+      A: ["sensor_13_avg"]
+      B: ["sensor_32_avg"]
+    thresholds:
+      absolute: [0, 120]
+      gradient: 12
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+    
+  gen_bearing_temp2_c_avg:
+    description: "Generator bearing temperature 2"
+    unit: "°C"
+    farm_mappings:
+      A: ["sensor_14_avg"]
+      B: ["sensor_33_avg"]
+    thresholds:
+      absolute: [0, 120]
+      gradient: 12
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+    
+  gen_rpm_avg:
+    description: "Generator RPM"
+    unit: "RPM"
+    farm_mappings:
+      A: ["sensor_18_avg"]
+      B: ["sensor_19_avg"]
+      C: ["sensor_8_avg"]
+    unit_conversions:
+      C: "rad_to_rpm"  # multiply by 60/(2*pi)
+    thresholds:
+      absolute: [0, 2000]
+      gradient: 1000
+      flatline: 1008
+      drift: 72
+
+# Metadata columns (not sensors but required columns)
+metadata:
+  time_stamp:
+    farm_mappings:
+      A: ["time_stamp"]
+      B: ["time_stamp"]
+      C: ["time_stamp"]
+  asset_id:
+    farm_mappings:
+      A: ["asset_id"]
+      B: ["asset_id"]
+      C: ["asset_id"]
+  id:
+    farm_mappings:
+      A: ["id"]
+      B: ["id"]
+      C: ["id"]
+  train_test:
+    farm_mappings:
+      A: ["train_test"]
+      B: ["train_test"]
+      C: ["train_test"]
+  status_type_id:
+    farm_mappings:
+      A: ["status_type_id"]
+      B: ["status_type_id"]
+      C: ["status_type_id"]
