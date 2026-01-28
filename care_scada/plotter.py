@@ -7,6 +7,7 @@ import plotly.express as px
 
 def plot_sensor_timeseries(df: pd.DataFrame,
                            sensor_cols: list,
+                           df_test=None,
                            failure_time_start=None,
                            failure_time_end=None,
                            dataset_id=None,
@@ -21,6 +22,8 @@ def plot_sensor_timeseries(df: pd.DataFrame,
         Input dataframe with 'time_stamp' sensor columns.
     sensor_cols : list
         List of sensor column names to plot.
+    df_test : pd.DataFrame, optional
+        Second dataframe, with time after the df time range.
     failure_time_start : str or pd.Timestamp, optional
         Start time of failure period to highlight.
     failure_time_end : str or pd.Timestamp, optional
@@ -36,11 +39,27 @@ def plot_sensor_timeseries(df: pd.DataFrame,
     -------
     plotly.graph_objects.Figure
     """
+    # Combine df and df_test if provided
+    prediction_start_time = None
+    if df_test is not None:
+        try:
+            df = pd.concat([df, df_test])
+        except ValueError as e:
+            print(f"Warning: Could not concatenate df and df_test because {e}. \
+                  Proceeding with df only.")
+
     # Filter by dataset_id if provided
     if dataset_id is not None:
         dataset_id = str(dataset_id)
         try:
             df = df.loc[dataset_id].copy()
+            # Store the prediction start time after filtering
+            if df_test is not None:
+                try:
+                    df_test_filtered = df_test.loc[dataset_id]
+                    prediction_start_time = df_test_filtered.index.min()
+                except (KeyError, AttributeError):
+                    pass
         except KeyError:
             print(f"No data found for dataset_id '{dataset_id}'")
             return go.Figure()
@@ -74,6 +93,12 @@ def plot_sensor_timeseries(df: pd.DataFrame,
                 side="right",
                 showgrid=False,
                 #position=0.85
+            ),
+            legend=dict(
+                x=1.15,
+                xanchor="left",
+                y=1,
+                yanchor="top"
             )
         )
         # assign power to the second y axis as dots
@@ -115,11 +140,20 @@ def plot_sensor_timeseries(df: pd.DataFrame,
                 marker=dict(size=6, color="black", symbol="x"),
                 name=f"Outliers: {col}",
             )
-    # add vertical line for start of prediction data
-    #if dataset_id is not None:
-    #    prediction_start_time = df[df["train_test"] == "prediction"].index.min()
-    #    fig.add_vline(
-    #        x=prediction_start_time,
-    #        line=dict(color="Blue", width=2, dash="dash"),
-    #     )
+
+    # Add vertical line for start of prediction data
+    if prediction_start_time is not None:
+        fig.add_vline(
+           x=prediction_start_time,
+           line=dict(color="Black", width=2, dash="dash"),
+        )
+        # Add invisible trace for legend entry
+        fig.add_scatter(
+            x=[None],
+            y=[None],
+            mode="lines",
+            line=dict(color="Black", width=2, dash="dash"),
+            name="Prediction Start",
+            showlegend=True
+        )
     return fig
