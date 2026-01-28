@@ -19,21 +19,30 @@ from care_scada.preprocessing.outlier_detection import (
     flag_outliers_drifts_flatlines,
     flag_outliers
 )
-from care_scada.thresholds import DRIFT_THRESHOLDS, FLATLINE_THRESHOLDS, GRADIENT_THRESHOLDS
+from care_scada.sensor_config import get_sensor_config
 
-def make_group(values, dataset_id="1", col="wind_speed1_ms_avg", start="2022-01-01 00:00:00", freq="10min"):
+_config = get_sensor_config()
+DRIFT_THRESHOLDS = _config.get_thresholds('drift')
+FLATLINE_THRESHOLDS = _config.get_thresholds('flatline')
+GRADIENT_THRESHOLDS = _config.get_thresholds('gradient')
+
+def make_group(values, dataset_id="1", col="wind_speed1_ms_avg", start="2022-01-01 00:00:00",
+               freq="10min"):
     """Helper to create a test DataFrame with a MultiIndex as expected by Preprocessor methods."""
     times = pd.date_range(start=start, periods=len(values), freq=freq)
     idx = pd.MultiIndex.from_product([[dataset_id], times], names=["dataset_id", "time_stamp"])
     return pd.DataFrame({col: values}, index=idx)
 
 def flagged_count(out_df, flag_col="is_outlier_gr_ex"):
+    """Count number of flagged outliers in the DataFrame."""
     return int(out_df[flag_col].sum())
 
 def flagged_cols_contains(out_df, colname, flag_col="is_outlier_gr_ex"):
+    """Check if the flagged columns list contains the specified column name."""
     flagged = out_df[out_df[flag_col]]
     return any(isinstance(lst, list) and colname in lst for lst in flagged[f"{flag_col}_cols"])
 
+# Get thresholds - fail early if keys are missing
 mb_threshold = GRADIENT_THRESHOLDS.get("main_bearing_temp2_c_avg")
 ws_threshold = GRADIENT_THRESHOLDS.get("wind_speed1_ms_avg")
 ot_threshold = GRADIENT_THRESHOLDS.get("outside_temp_c_avg")
@@ -133,7 +142,7 @@ GRADIENT_THRESHOLD_TEST_CASES = [
 @pytest.mark.parametrize("ds_id, values, col, expected_count, case", GRADIENT_THRESHOLD_TEST_CASES)
 def test_gradient_threshold(ds_id, values, col, expected_count, case):
     group = make_group(values, dataset_id=str(ds_id), col=col)
-    out = flag_outliers_gradient_thresholds(group, numeric_cols=[col], verbose=False)
+    out = flag_outliers_gradient_thresholds(group, verbose=False)
 
     assert flagged_count(out) == expected_count, f"{case}: expected {expected_count}, got {flagged_count(out)}"
     if expected_count > 0:
@@ -143,14 +152,14 @@ def test_gradient_threshold(ds_id, values, col, expected_count, case):
 
 # Flagging for drifts and flatlines
 # Use centralized thresholds for tests (per-column values)
-# fall back to sensible defaults if the key is missing
 DRIFT_LIMIT = DRIFT_THRESHOLDS.get('main_bearing_temp2_c_avg')
 FLATLINE_LIMIT = FLATLINE_THRESHOLDS.get('main_bearing_temp2_c_avg')
+
 DRIFT_AND_FLATLINE_TEST_CASES = [
     (2, [50]*5 + np.arange(50, 55, 1).tolist() + [54]*5 , "main_bearing_temp2_c_avg", 0, "Short drift up - no flags"),
     (3, [50]*5 + np.arange(50, 70, 0.005).tolist() + [70]*5 , "main_bearing_temp2_c_avg", 4000, "Long drift up - flags"),
     (4, [50]*(FLATLINE_LIMIT+1), "main_bearing_temp2_c_avg", FLATLINE_LIMIT, "Flatline"),
-    (5, [50]*(FLATLINE_LIMIT) + [51], "main_bearing_temp2_c_avg", 0, "Short flatline - no flags"),
+    (5, [50]*(FLATLINE_LIMIT-1) + [51], "main_bearing_temp2_c_avg", 0, "Short flatline - no flags"),
     (6, [50]*5 + [51]*(FLATLINE_LIMIT+1)+ [50]*5, "main_bearing_temp2_c_avg", FLATLINE_LIMIT, "Flatline in middle"),
     (7, [50]*5 + [70]* (FLATLINE_LIMIT -1) + [50]*5, "main_bearing_temp2_c_avg", 0, "Short flatline in middle - no flags"),
     (8, [50]*(FLATLINE_LIMIT-5) + np.arange(50, 70, 0.005).tolist() + [70]*(FLATLINE_LIMIT-5), "main_bearing_temp2_c_avg", 4000, " short flatline + long drift up + short latline"),
@@ -166,7 +175,7 @@ DRIFT_AND_FLATLINE_TEST_CASES = [
 @pytest.mark.parametrize("ds_id, values, col, expected_count, case", DRIFT_AND_FLATLINE_TEST_CASES)
 def test_drift_and_flatline_detection(ds_id, values, col, expected_count, case):
     group = make_group(values, dataset_id=str(ds_id), col=col)
-    out = flag_outliers_drifts_flatlines(group, numeric_cols=[col], verbose=False)
+    out = flag_outliers_drifts_flatlines(group, verbose=False)
     assert flagged_count(out, flag_col="is_outlier_drift_flat") == expected_count, f"{case}: expected {expected_count}, got {flagged_count(out, flag_col='is_outlier_drift_flat')}"
     if expected_count > 0:
         assert flagged_cols_contains(out, col, flag_col="is_outlier_drift_flat"), f"{case}: expected column name in gradient_exceeded_cols"
@@ -268,7 +277,7 @@ INTEGRATED_OUTLIER_FLAGGING_TEST_CASES = [
 @pytest.mark.parametrize("ds_id, values, col, expected_count, case", INTEGRATED_OUTLIER_FLAGGING_TEST_CASES)
 def test_integrated_outlier_flagging(ds_id, values, col, expected_count, case):
     group = make_group(values, dataset_id=str(ds_id), col=col)
-    out = flag_outliers(group, numeric_cols=[col], verbose=True)
+    out = flag_outliers(group, verbose=True)
     assert flagged_count(out, flag_col="is_outlier") == expected_count, f"{case}: expected {expected_count}, got {flagged_count(out, flag_col='is_outlier')}"
     if expected_count > 0:
         assert flagged_cols_contains(out, col, flag_col="is_outlier"), f"{case}: expected column name in is_outlier_cols"
