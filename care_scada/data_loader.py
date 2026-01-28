@@ -54,8 +54,7 @@ class DataLoader():
         df = self.load_raw()
         df = self.unify_units(df)
         df = self.standardize_column_names(df)
-        df_train, df_test = self.train_test_split(df)
-        return df_train, df_test
+        return df
 
 
     def load_raw(self) -> pd.DataFrame:
@@ -134,21 +133,3 @@ class DataLoader():
         df.rename(columns=rename_dict, inplace=True)
         print(f"Renamed {len(rename_dict)} columns.")
         return df
-
-
-    def train_test_split(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Splits the DataFrame into training and testing based on the train_test column provided
-        by the authors of CARE dataset.
-        """
-        df = df.copy()
-        if len(df) == 0:
-            raise ValueError("Empty DataFrame passed to train_test_split.")
-        if 'train_test' not in df.columns:
-            raise ValueError("train_test column not found in DataFrame.")
-
-        df_train = df[df['train_test'] == 'train']
-        df_test = df[df['train_test'] == 'prediction']
-
-        print(f"Train - Test ratio: {round(len(df_train)/len(df), 2)}.")
-        return df_train, df_test

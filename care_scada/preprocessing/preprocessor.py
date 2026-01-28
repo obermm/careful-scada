@@ -56,13 +56,14 @@ class Preprocessor:
     # PUBLIC API
     # =====================================================================
 
-    def process(self, df: pd.DataFrame) -> pd.DataFrame:
+    def process(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Full preprocessing pipeline:
         Args:
             df: Raw SCADA DataFrame with MultiIndex (dataset_id, time_stamp)
         Returns:
-            df: Cleaned and feature-engineered DataFrame
+            df_train: Cleaned and feature-engineered training DataFrame
+            df_test: Cleaned and feature-engineered testing DataFrame
         """
         df = df.copy()
 
@@ -79,8 +80,9 @@ class Preprocessor:
 
         df = self.clean(df)
         df = self.add_features(df)
+        df_train, df_test = self._train_test_split(df)
 
-        return df
+        return df_train, df_test
 
 
     def clean(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -221,3 +223,21 @@ class Preprocessor:
                 print(filter_stats_df)
 
         return df
+
+    def _train_test_split(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        Splits the DataFrame into training and testing based on the train_test column provided
+        by the authors of CARE dataset.
+        """
+        df = df.copy()
+        if len(df) == 0:
+            raise ValueError("Empty DataFrame passed to train_test_split.")
+        if 'train_test' not in df.columns:
+            raise ValueError("train_test column not found in DataFrame.")
+
+        df_train = df[df['train_test'] == 'train']
+        df_test = df[df['train_test'] == 'prediction']
+
+        if self.verbose:
+            print(f"Train - Test ratio: {round(len(df_train)/len(df), 2)}.")
+        return df_train, df_test
