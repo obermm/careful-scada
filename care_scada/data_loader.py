@@ -12,7 +12,7 @@ class DataLoader():
     Loads data from a specified farm, unifies units, and standardizes column names.
     """
 
-    def __init__(self, farm_name, data_path="dat/raw", config_path=None):
+    def __init__(self, farm_name, data_path="dat/Care_To_Compare", config_path=None):
         """
         Initialize the DataLoader for a specific farm.
         Args:
@@ -99,9 +99,14 @@ class DataLoader():
             turbine_df["dataset_id"] = file.stem
             df_list.append(turbine_df)
 
+        if not df_list:
+            raise RuntimeError(f"Warning: No CSV files found in path: {self.path}")
         # Combine all datasets into a single DataFrame and set MultiIndex
-        df = pd.concat(df_list, ignore_index=True) if df_list else pd.DataFrame()
-        df = df.set_index(['dataset_id', 'time_stamp']).sort_index()
+        try:
+            df = pd.concat(df_list, ignore_index=True) if df_list else pd.DataFrame()
+            df = df.set_index(['dataset_id', 'time_stamp']).sort_index()
+        except Exception as e:
+            raise RuntimeError(f"Error combining datasets: {e}")
 
         print(f"Loaded {len(df_list)} datasets. Columns loaded: {sorted(df.columns.tolist())}")
         return df

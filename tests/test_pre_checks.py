@@ -156,15 +156,15 @@ feb_28 = pd.to_datetime("2019-02-28" + " 00:00:00") + pd.to_timedelta(np.arange(
                          unit='min')
 
 df_duplicated_feb28 = pd.DataFrame({
-    "dataset_id": ["1"] * (len(feb_28) * 2),
-    "time_stamp": list(feb_28) + list(feb_28),
-    "wind_speed1_ms_avg": [10] * (len(feb_28) * 2)
+    "dataset_id": ["1"] * (len(feb_28) * 2) + ["1"],
+    "time_stamp": list(feb_28) + list(feb_28) + [pd.to_datetime("2019-03-01 00:00:00")],
+    "wind_speed1_ms_avg": [10] * (len(feb_28) * 2) + [15]
 }).set_index(["dataset_id", "time_stamp"])
 
 df_duplicated_feb28_removed = pd.DataFrame({
-    "dataset_id": ["1"] * len(feb_28),
-    "time_stamp": list(feb_28),
-    "wind_speed1_ms_avg": [10] * len(feb_28)
+    "dataset_id": ["1"],
+    "time_stamp": [pd.to_datetime("2019-03-01 00:00:00")],
+    "wind_speed1_ms_avg": [15]
 }).set_index(["dataset_id", "time_stamp"])
 
 feb = pd.to_datetime("2024-02-01" + " 00:00:00") + pd.to_timedelta(np.arange(0, 29*24*6)*10, \

@@ -1,5 +1,6 @@
 .venv
-dat/
+dat_v3/
+CARE_To_Compare/
 __pycache__/
 doc/fig/
 careful-scada.code-workspace
