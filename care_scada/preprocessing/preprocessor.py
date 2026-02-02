@@ -89,6 +89,9 @@ class Preprocessor:
 
         # for testing only keep one dataset_id
         if self.dataset_id is not None:
+            if self.dataset_id not in df.index.get_level_values('dataset_id'):
+                raise KeyError(f"dataset_id {self.dataset_id} not found in DataFrame index.")
+
             df = df.xs(self.dataset_id, level='dataset_id', drop_level=False)
 
         df = self.clean(df)

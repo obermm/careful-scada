@@ -143,7 +143,7 @@ sensors:
       B: ["sensor_10_avg"]
       C: ["sensor_76_avg"]
     thresholds:
-      absolute: [-0.05, 95]
+      absolute: [-5, 95]
       gradient: 45
       flatline: 1008  # 7 days
       drift: 72
@@ -215,7 +215,7 @@ sensors:
     description: "Gearbox oil temperature 2"
     unit: "°C"
     farm_mappings:
-      C: ["sensor_190"]
+      C: ["sensor_190_avg"]
     thresholds:
       absolute: [0, 80]
       gradient: 6

@@ -62,7 +62,7 @@ class DataLoader():
 
         if not allowed_raw:
             raise ValueError(f"No column mappings found for farm '{self.farm_name}' in sensor config.")
-        print(f"Loading raw data for farm '{self.farm_name}' with {len(allowed_raw)} allowed columns.")
+        print(f"Loading raw data for farm '{self.farm_name}' with {len(allowed_raw)} supported features.")
 
         csv_files = list(Path(self.path).glob('*.csv'))
         df_list = []
