@@ -144,7 +144,7 @@ sensors:
       C: ["sensor_76_avg"]
     thresholds:
       absolute: [-0.05, 95]
-      gradient: 30
+      gradient: 45
       flatline: 1008  # 7 days
       drift: 72
     
@@ -206,7 +206,7 @@ sensors:
       C: ["sensor_189_avg"]
     thresholds:
       absolute: [0, 80]
-      gradient: 6
+      gradient: 12
       flatline: 144
       drift: 576
     rarely_zero: true
@@ -230,7 +230,7 @@ sensors:
       A: ["sensor_13_avg"]
       B: ["sensor_32_avg"]
     thresholds:
-      absolute: [0, 120]
+      absolute: [0, 130]
       gradient: 12
       flatline: 144
       drift: 576
@@ -243,7 +243,7 @@ sensors:
       A: ["sensor_14_avg"]
       B: ["sensor_33_avg"]
     thresholds:
-      absolute: [0, 120]
+      absolute: [0, 130]
       gradient: 12
       flatline: 144
       drift: 576
