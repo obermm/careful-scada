@@ -5,6 +5,7 @@ Coordinates data cleaning, feature engineering, and outlier handling.
 
 import pandas as pd
 import numpy as np
+from typing import Optional, Union
 
 from ..sensor_config import get_sensor_config
 from .data_quality import apply_uniqueness, apply_completeness
@@ -35,22 +36,22 @@ class Preprocessor:
 
     def __init__(
         self,
-        farm_name='A',
-        dataset_id=None,
-        remove_status = None,
-        missing_values = None,
-        outlier_handling = None,
-        numeric_cols = None,
-        verbose=True
+        farm_name: str = 'A',
+        dataset_id: Optional[Union[str, int]] = None,
+        remove_status: Optional[Union[list[int], int]] = None,
+        missing_values: Optional[str] = None,
+        outlier_handling: Optional[str] = None,
+        numeric_cols: Optional[list[str]] = None,
+        verbose: bool = True
     ):
         # Load settings from config
         config = get_sensor_config()
         settings = config.get_preprocessing_settings()
-        
+
         self.farm_name = farm_name
         self.dataset_id = str(dataset_id) if dataset_id is not None else None
         self.numeric_cols = numeric_cols
-        
+
         # Apply settings if not specified
         if remove_status is None:
             remove_status = settings['remove_status']
@@ -136,10 +137,9 @@ class Preprocessor:
             strategy=self.missing_values,
             verbose=self.verbose
         )
-        df = flag_outliers(df, verbose=self.verbose)
 
-        # remove outliers except for sensors that measure the same underlying latent variable
-        # e.g. different wind measurements
+        # flag and handle outliers
+        df = flag_outliers(df, verbose=self.verbose)
         df = handle_outliers(df, strategy=self.outlier_handling, verbose=self.verbose)
 
         return df

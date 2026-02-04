@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 def plot_sensor_timeseries(df: pd.DataFrame,
-                           sensor_cols: list,
+                           sensor_cols: list[str],
                            df_test=None,
                            failure_time_start=None,
                            failure_time_end=None,
@@ -20,7 +20,7 @@ def plot_sensor_timeseries(df: pd.DataFrame,
     ----------
     df : pd.DataFrame
         Input dataframe with 'time_stamp' sensor columns.
-    sensor_cols : list
+    sensor_cols : list[str]
         List of sensor column names to plot.
     df_test : pd.DataFrame, optional
         Second dataframe, with time after the df time range.
