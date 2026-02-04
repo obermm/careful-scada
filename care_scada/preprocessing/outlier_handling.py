@@ -95,7 +95,7 @@ def handle_outliers(
                 "rows_dropped": n_dropped_group,
                 "percent_dropped": (n_dropped_group / n_before_group) * 100 if n_before_group > 0 else 0
             })
-            return group[outlier_mask]
+            return group[~outlier_mask]
 
         df = df.groupby("dataset_id", group_keys=False).apply(drop_outliers_group)
 
