@@ -23,9 +23,9 @@ With open source data and open source code for preprocessing you can start buili
 
 ## Installation (development)
 ```bash
-git clone https://github.com/yourname/WindCAREScale.git
-cd WindCAREScale
-pip install -e .
+git clone https://github.com/JakobUnterholzner/careful-scada.git
+cd careful-scada
+python -m pip install -U pip
 ```
 See the examples/basic_usage.ipynb Notebook and use the citation above to obtain the needed datasets.
 

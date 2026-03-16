@@ -1,7 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "careful-scada"
 version = "0.1.0"
 description = "A preprocessing library for the CARE open source SCADA data."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+	"numpy>=2.0",
+	"pandas>=2.0",
+	"plotly>=5.0",
+	"PyYAML>=6.0",
+	"scikit-learn>=1.4",
+]
+
+[project.optional-dependencies]
+dev = [
+	"ipykernel>=6.0",
+	"pytest>=8.0",
+]
 
 [tool.setuptools.packages.find]
 include = ["care_scada"]
