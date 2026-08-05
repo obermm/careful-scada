@@ -106,7 +106,7 @@ def plot_sensor_timeseries(df: pd.DataFrame,
             y=df["active_power_kWh"],
             x=df.index,
             mode="markers",
-            marker=dict(size=4, color=df["active_power_kWh"], opacity=0.01),
+            marker=dict(size=4, color=df["active_power_kWh"], opacity=1),
             name="active_power_kWh",
             yaxis="y2",
         )
@@ -121,6 +121,8 @@ def plot_sensor_timeseries(df: pd.DataFrame,
 
     if show_outliers:
         outlier_df = df[df["is_outlier"]].copy()
+        # filter to the sensor columns that are plotted
+        outlier_df = outlier_df[outlier_df["is_outlier_cols"].apply(lambda cols: any(col in sensor_cols for col in (cols if isinstance(cols, (list, tuple)) else [cols])))]
         # Collect points per flagged column and add a marker trace per column
         points = defaultdict(lambda: {"x": [], "y": []})
         for ts, row in outlier_df.iterrows():
@@ -128,7 +130,8 @@ def plot_sensor_timeseries(df: pd.DataFrame,
             if not isinstance(cols, (list, tuple)):
                 cols = [cols] if cols else []
             for col in cols:
-                if col in outlier_df.columns:
+                # Only add markers for sensors that are actually plotted.
+                if col in sensor_cols and col in outlier_df.columns:
                     points[col]["x"].append(ts)
                     points[col]["y"].append(row[col])
 
