@@ -6,7 +6,7 @@
 # Global preprocessing settings
 settings:
   short_interior_threshold: 6  # 1 hour
-  max_consecutive_zeros: 60  # 6 hours
+  max_consecutive_zeros: 72  # 12 hours
   gradient_tolerance: 0.01
   
   # Preprocessor settings
@@ -69,7 +69,7 @@ sensors:
     thresholds:
       absolute: [0, 50]
       gradient: 12
-      flatline: 36
+      flatline: 144
       drift: 72
     
   wind_speed2_ms_avg:
@@ -109,7 +109,43 @@ sensors:
       flatline: 144
       drift: 576  # 4 days
     rarely_zero: true
-    
+
+  main_bearing_temp1_c_std:
+    description: "Main bearing temperature 1 (std dev)"
+    unit: "°C"
+    farm_mappings:
+      B: ["sensor_51_min"] # Not a bug, the column names in the data are obviously not mixed up.
+    thresholds:
+      absolute: [0, 1]
+      gradient: 1
+      flatline: 144
+      drift: 576  # 4 days
+    rarely_zero: false
+
+  main_bearing_temp1_c_max:
+    description: "Main bearing temperature 1 (max)"
+    unit: "°C"
+    farm_mappings:
+      B: ["sensor_51_max"]
+    thresholds:
+      absolute: [0, 80]
+      gradient: 6
+      flatline: 144
+      drift: 576  # 4 days
+    rarely_zero: true
+
+  main_bearing_temp1_c_min:
+    description: "Main bearing temperature 1 (min)"
+    unit: "°C"
+    farm_mappings:
+      B: ["sensor_51_std"] # Not a bug, the column names in the data are obviously not mixed up.
+    thresholds:
+      absolute: [0, 80]
+      gradient: 6
+      flatline: 144
+      drift: 576  # 4 days
+    rarely_zero: true
+
   main_bearing_temp2_c_avg:
     description: "Main bearing temperature 2"
     unit: "°C"
@@ -122,7 +158,43 @@ sensors:
       flatline: 144
       drift: 576
     rarely_zero: true
-    
+
+  main_bearing_temp2_c_std:
+    description: "Main bearing temperature 2 (std dev)"
+    unit: "°C"
+    farm_mappings:
+      B: ["sensor_52_min"] # Not a bug, the column names in the data are obviously not mixed up.
+    thresholds:
+      absolute: [0, 1]
+      gradient: 1
+      flatline: 144
+      drift: 576
+    rarely_zero: false
+
+  main_bearing_temp2_c_max:
+    description: "Main bearing temperature 2 (max)"
+    unit: "°C"
+    farm_mappings:
+      B: ["sensor_52_max"]
+    thresholds:
+      absolute: [0, 80]
+      gradient: 6
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+
+  main_bearing_temp2_c_min:
+    description: "Main bearing temperature 2 (min)"
+    unit: "°C"
+    farm_mappings:
+      B: ["sensor_52_std"] # Not a bug, the column names in the data are obviously not mixed up.
+    thresholds:
+      absolute: [0, 80]
+      gradient: 6
+      flatline: 144
+      drift: 576
+    rarely_zero: true
+
   main_bearing_temp3_c_avg:
     description: "Main bearing temperature 3"
     unit: "°C"
