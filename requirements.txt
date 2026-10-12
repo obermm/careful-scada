@@ -1,0 +1,2 @@
+# Install package plus development extras from pyproject.toml
+-e ".[dev]"

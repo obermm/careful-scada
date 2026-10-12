@@ -1,0 +1,27 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: careful-scada
+message: '  If you use this software, please cite both the software and the CARE dataset.'
+type: software
+authors:
+  - given-names: Jakob
+    family-names: Unterholzner
+    email: jakob.unterholzner@student.uni-tuebingen.de
+    affiliation: University of Tübingen
+repository-code: 'https://github.com/JakobUnterholzner/careful-scada'
+abstract: >
+  Cleaning and preprocessing utilities tailored to the
+  open-source wind energy SCADA dataset CARE.
+license: MIT
+references:
+  - type: article
+    authors:
+      - family-names: Gück
+        given-names: C.
+      - family-names: Roelofs
+        given-names: C.
+    title: Wind Turbine SCADA Data For Early Fault Detection
+    year: 2025
+    doi: 10.5281/zenodo.15846963
