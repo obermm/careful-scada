@@ -4,3 +4,6 @@ CARE_To_Compare/
 __pycache__/
 doc/fig/
 careful-scada.code-workspace
+.pytest_cache/
+*.egg-info/
+dat/

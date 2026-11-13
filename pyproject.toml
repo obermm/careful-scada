@@ -17,8 +17,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# LSTM, physics-constrained RNN and Kalman model (JAX/Flax)
+deep = [
+	"jax>=0.4",
+	"flax>=0.8",
+	"optax>=0.2",
+]
+# notebooks, example scripts and tests
 dev = [
 	"ipykernel>=6.0",
+	"matplotlib>=3.7",
 	"pytest>=8.0",
 ]
 

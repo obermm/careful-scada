@@ -7,7 +7,7 @@ import os
 import pytest
 import pandas as pd
 import numpy as np
-from care_scada.preprocessing.missing_values import handle_missing_values
+from care_scada.preprocessing.missing_values import handle_missing_values, MAX_CONSECUTIVE_ZEROS
 
 # Add the parent directory to the path so we can import care_scada
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -34,12 +34,14 @@ df_with_short_zero_run = pd.DataFrame({
     "active_power_kWh": [100.0, 0.0, 0.0, 99.0, 98.0] # often zero
 }).set_index(["dataset_id", "time_stamp"])
 
+# zero run length is tied to the configured threshold (max_consecutive_zeros)
+N_ZEROS = MAX_CONSECUTIVE_ZEROS
 df_with_long_zero_run = pd.DataFrame({
-    "dataset_id": ["1"] * 64,
-    "time_stamp": pd.date_range(start="2022-01-01 00:00", periods=64, freq="10min"),
-    "outside_temp_c_avg": [10.0] + [0.0]*62 + [12.0], # rarely zero
-    "rotor_speed_rpm_avg": [20.0] + [0.0]*62 + [22.0], # often zero
-    "active_power_kWh": [100.0] + [0.0]*62 + [98.0] # often zero
+    "dataset_id": ["1"] * (N_ZEROS + 2),
+    "time_stamp": pd.date_range(start="2022-01-01 00:00", periods=N_ZEROS + 2, freq="10min"),
+    "outside_temp_c_avg": [10.0] + [0.0]*N_ZEROS + [12.0], # rarely zero
+    "rotor_speed_rpm_avg": [20.0] + [0.0]*N_ZEROS + [22.0], # often zero
+    "active_power_kWh": [100.0] + [0.0]*N_ZEROS + [98.0] # often zero
 }).set_index(["dataset_id", "time_stamp"])
 
 df_power_with_no_rotor_speed = pd.DataFrame({
@@ -77,7 +79,7 @@ DETECT_MISSING_VALUES_TEST_CASES = [
     # rarely zero sensor with long zero run -> removal
     # rotor_speed and active_power are often zero sensors and cross validated, so zeros are kept
     (df_with_long_zero_run,
-     df_with_long_zero_run.assign(outside_temp_c_avg=[10.0] + [np.nan]*62 + [12.0])),
+     df_with_long_zero_run.assign(outside_temp_c_avg=[10.0] + [np.nan]*N_ZEROS + [12.0])),
 
     # cross sensor validation: active_power > 100kw while rotor_speed is zero 
     # -> rotor_speed zeros are nans
@@ -134,14 +136,14 @@ def test_detect_missing_values(input_df, expected_df):
 HANDLE_MISSING_VALUES_TEST_CASES = [
     # dropping
     (df_with_long_zero_run, "drop",
-     df_with_long_zero_run.assign(outside_temp_c_avg=[10.0] + [np.nan]*62 + [12.0]).dropna()),
+     df_with_long_zero_run.assign(outside_temp_c_avg=[10.0] + [np.nan]*N_ZEROS + [12.0]).dropna()),
     # linear interpolation
     (df_with_long_zero_run, "linear_interpolation",
      df_with_long_zero_run.assign(outside_temp_c_avg=[10.0] + \
-                                  [10.0 + i*(12.0-10.0)/63 for i in range(1,63)] + [12.0])),
+                                  [10.0 + i*(12.0-10.0)/(N_ZEROS + 1) for i in range(1, N_ZEROS + 1)] + [12.0])),
     # median
     (df_with_long_zero_run, "median",
-     df_with_long_zero_run.assign(outside_temp_c_avg=[10.0] + [11.0]*62 + [12.0])),
+     df_with_long_zero_run.assign(outside_temp_c_avg=[10.0] + [11.0]*N_ZEROS + [12.0])),
 ]
 @pytest.mark.parametrize("input_df, strategy, expected_df", HANDLE_MISSING_VALUES_TEST_CASES)
 def test_handle_missing_values(input_df, strategy, expected_df):

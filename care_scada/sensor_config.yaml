@@ -363,3 +363,63 @@ metadata:
       A: ["status_type_id"]
       B: ["status_type_id"]
       C: ["status_type_id"]
+
+
+# Default lumped thermal networks for the physics-constrained RNN ("pcrnn").
+# Per target temperature: observed temperatures exchanging heat with it ("neighbours") and
+# operating signals that generate heat in it ("sources": linear = heat ~ u, square = heat ~ u^2).
+# Optional keys: "latent" (unmeasured state nodes) and "edges" (extra [node_a, node_b] pairs).
+# Sensors that are missing for a farm are dropped automatically. "default" is used for targets
+# without an entry.
+thermal_networks:
+  default:
+    neighbours: [outside_temp_c_avg]
+    sources: {rotor_speed_rpm_avg: linear, active_power_kWh: linear}
+
+  # Main bearing: on the slow rotor shaft, in front of the gearbox
+  main_bearing_temp1_c_avg:
+    neighbours: [outside_temp_c_avg, main_bearing_temp2_c_avg, main_bearing_temp3_c_avg,
+                 gearbox_bearing_temp1_c_avg]
+    sources: {rotor_speed_rpm_avg: linear, active_power_kWh: linear}
+  main_bearing_temp2_c_avg:
+    neighbours: [outside_temp_c_avg, main_bearing_temp1_c_avg, main_bearing_temp3_c_avg,
+                 gearbox_bearing_temp1_c_avg]
+    sources: {rotor_speed_rpm_avg: linear, active_power_kWh: linear}
+  main_bearing_temp3_c_avg:
+    neighbours: [outside_temp_c_avg, main_bearing_temp1_c_avg, main_bearing_temp2_c_avg,
+                 gearbox_bearing_temp1_c_avg]
+    sources: {rotor_speed_rpm_avg: linear, active_power_kWh: linear}
+
+  # Gearbox bearings: immersed in / lubricated by the gearbox oil
+  gearbox_bearing_temp1_c_avg:
+    neighbours: [outside_temp_c_avg, gearbox_oil_temp1_c_avg, gearbox_oil_temp2_c_avg,
+                 gearbox_bearing_temp2_c_avg]
+    sources: {gen_rpm_avg: linear, active_power_kWh: linear}
+  gearbox_bearing_temp2_c_avg:
+    neighbours: [outside_temp_c_avg, gearbox_oil_temp1_c_avg, gearbox_oil_temp2_c_avg,
+                 gearbox_bearing_temp1_c_avg, gearbox_bearing_temp3_c_avg]
+    sources: {gen_rpm_avg: linear, active_power_kWh: linear}
+  gearbox_bearing_temp3_c_avg:
+    neighbours: [outside_temp_c_avg, gearbox_oil_temp1_c_avg, gearbox_oil_temp2_c_avg,
+                 gearbox_bearing_temp2_c_avg, gearbox_bearing_temp4_c_avg]
+    sources: {gen_rpm_avg: linear, active_power_kWh: linear}
+  gearbox_bearing_temp4_c_avg:
+    neighbours: [outside_temp_c_avg, gearbox_oil_temp1_c_avg, gearbox_oil_temp2_c_avg,
+                 gearbox_bearing_temp3_c_avg]
+    sources: {gen_rpm_avg: linear, active_power_kWh: linear}
+
+  # Gearbox oil: collects the gearbox losses (~ transmitted power)
+  gearbox_oil_temp1_c_avg:
+    neighbours: [outside_temp_c_avg, gearbox_oil_temp2_c_avg, gearbox_bearing_temp1_c_avg]
+    sources: {active_power_kWh: linear, gen_rpm_avg: linear}
+  gearbox_oil_temp2_c_avg:
+    neighbours: [outside_temp_c_avg, gearbox_oil_temp1_c_avg, gearbox_bearing_temp1_c_avg]
+    sources: {active_power_kWh: linear, gen_rpm_avg: linear}
+
+  # Generator bearings: on the fast shaft
+  gen_bearing_temp1_c_avg:
+    neighbours: [outside_temp_c_avg, gen_bearing_temp2_c_avg]
+    sources: {gen_rpm_avg: linear, active_power_kWh: linear}
+  gen_bearing_temp2_c_avg:
+    neighbours: [outside_temp_c_avg, gen_bearing_temp1_c_avg]
+    sources: {gen_rpm_avg: linear, active_power_kWh: linear}

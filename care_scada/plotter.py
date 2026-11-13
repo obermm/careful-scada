@@ -160,3 +160,7 @@ def plot_sensor_timeseries(df: pd.DataFrame,
             showlegend=True
         )
     return fig
+
+
+# Thermal network diagram of the physics-constrained RNN (pcrnn)
+from care_scada.modeling.thermal_network import plot_thermal_network  # noqa: E402,F401

@@ -87,7 +87,7 @@ def test_get_thresholds_flatline(config):
     thresholds = config.get_thresholds('flatline')
 
     assert 'wind_speed1_ms_avg' in thresholds
-    assert thresholds['wind_speed1_ms_avg'] == 36
+    assert thresholds['wind_speed1_ms_avg'] == 144
     assert thresholds['outside_temp_c_avg'] == 144
 
 

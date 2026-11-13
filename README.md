@@ -26,6 +26,10 @@ With open source data and open source code for preprocessing you can start buili
 git clone https://github.com/JakobUnterholzner/careful-scada.git
 cd careful-scada
 python -m pip install -U pip
+python -m pip install -e ".[dev,deep]"
 ```
+All dependencies are declared in `pyproject.toml`: the core library needs only the base dependencies,
+the extra `deep` adds JAX/Flax for the `lstm`, `pcrnn` and `kalman` models, and `dev` adds what the
+notebooks, examples and tests need (`pip install -e .` installs the core library only).
 See the examples/basic_usage.ipynb Notebook and use the citation above to obtain the needed datasets.
 

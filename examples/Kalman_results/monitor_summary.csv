@@ -1,0 +1,17 @@
+method,signals,false_alarm_turbines,lead_77,lead_53,lead_27,h_rise,h_level
+kf,bearings,1,-14,-8.0,217.0,6.379,165.822
+kf,asymmetry,2,7,-6.0,216.0,4.811,131.623
+kf:0.01,bearings,2,10,-7.0,132.0,6.841,115.182
+kf:0.01,asymmetry,1,-19,-6.0,-22.0,4.319,131.337
+kf:0.1,bearings,2,10,-7.0,132.0,6.838,114.157
+kf:0.1,asymmetry,1,-19,-6.0,-22.0,4.287,133.57
+kf:1,bearings,1,8,-8.0,132.0,6.752,122.286
+kf:1,asymmetry,1,-24,8.0,-22.0,4.036,150.205
+pcrnn,bearings,2,-28,-32.0,,18.876,126.347
+pcrnn,asymmetry,2,-31,-7.0,213.0,23.713,278.711
+pcrnn_local,bearings,1,-35,-35.0,,36.49,177.962
+pcrnn_local,asymmetry,2,-12,1.0,154.0,35.619,194.472
+lstm,bearings,2,118,,132.0,21.346,140.154
+lstm,asymmetry,2,-25,-7.0,237.0,21.701,318.583
+lstm_local,bearings,2,-29,-31.0,,44.469,172.606
+lstm_local,asymmetry,2,-14,-6.0,116.0,20.068,197.363
