@@ -218,6 +218,20 @@ class ThermalNetworkSpec:
         return replace(self, neighbours=[n for n in self.neighbours if n not in new], edges=edges,
                        sources=_links_to_sources(links), measured_states=self.measured_states + new)
 
+    def retarget(self, target: str) -> "ThermalNetworkSpec":
+        """
+        The same network with the measured state ``target`` as target; the old target becomes a
+        measured state (e.g. to predict the second bearing of a two-bearing network).
+        """
+        if target == self.target:
+            return self
+        if target not in self.measured_states:
+            raise ValueError(f"'{target}' is not a measured state of the network.")
+        return replace(self, target=target, neighbours=[],
+                       edges=[(self.target, n) for n in self.neighbours] + list(self.edges),
+                       sources=_links_to_sources(self.source_links),
+                       measured_states=[self.target] + [m for m in self.measured_states if m != target])
+
     def as_boundary(self) -> "ThermalNetworkSpec":
         """Copy in which the measured states are observed boundary temperatures (no own balance,
         their heat sources are dropped); used by models without an observation model (PCRNN)."""
@@ -346,8 +360,11 @@ def _place(d: _Drawing) -> Dict[str, Tuple[float, float]]:
 
 
 def _wrap(lhs: str, terms: List[str], per_line: int = 4) -> List[str]:
-    chunks = [" + ".join(terms[j:j + per_line]) for j in range(0, len(terms), per_line)] or ["0"]
-    return [f"{lhs} = {chunks[0]}"] + ["        + " + c for c in chunks[1:]]
+    def join(ts):  # "a + −b" -> "a − b"
+        return "".join(t if not j else (f" − {t[1:]}" if t.startswith("−") else f" + {t}") for j, t in enumerate(ts))
+    chunks = [join(terms[j:j + per_line]) for j in range(0, len(terms), per_line)] or ["0"]
+    return [f"{lhs} = {chunks[0]}"] + [("        − " + c[1:]) if c.startswith("−") else "        + " + c
+                                       for c in chunks[1:]]
 
 
 def _from_spec(obj) -> _Drawing:
@@ -377,11 +394,12 @@ def _from_spec(obj) -> _Drawing:
         N[f"q:{T}"] = _Node("attached", "residual heat into {of} (see below)", of=key[T], symbol="q<sub>NN</sub>")
     g = params["conductances"] if params else {}
     rises = params["steady_state_rise_K"] if params else {}
+    cooled = {(c[0], c[1]) for c in getattr(obj, "cooling", ())}
     d = _Drawing(
         title=f"Lumped thermal network of {T}", nodes=N,
         heat=[(key[a], key[b], g.get((a, b)), f"G={g[(a, b)]:.2g}/h" if (a, b) in g else "G")
               for a, b in spec.all_edges],
-        inputs=[(f"u:{n}", key[s], (f"+{rises[(n, s)]:.2g} K" if (n, s) in rises else "β")
+        inputs=[(f"u:{n}", key[s], (f"{rises[(n, s)]:+.2g} K" if (n, s) in rises else "β")
                  + (" (u²)" if n in squared else "")) for n, s, _ in spec.source_links]
         + ([(f"q:{T}", key[T], "")] if residual else []),
         taus={key[n]: v for n, v in (params["time_constants_h"] if params else {}).items()})
@@ -392,8 +410,8 @@ def _from_spec(obj) -> _Drawing:
             i, k = idx[key[n]], key[n]
             others = sorted((key[b if a == n else a] for a, b in spec.all_edges if n in (a, b)), key=idx.get)
             terms = [f"G<sub>{i},{idx[o]}</sub>({sym[o]} − {sym[k]})" for o in others]
-            terms += [f"β<sub>{i},{idx['u:' + name]}</sub>{sym['u:' + name]}" + ("²" if name in squared else "")
-                      for name, s, _ in spec.source_links if s == n]
+            terms += [("−" if (name, s) in cooled else "") + f"β<sub>{i},{idx['u:' + name]}</sub>{sym['u:' + name]}"
+                      + ("²" if name in squared else "") for name, s, _ in spec.source_links if s == n]
             terms += ["q<sub>NN</sub>(x)"] if residual and n == T else []
             lines += _wrap(f"d{sym[k]}/dt" if n == T else f"C<sub>{i}</sub> d{sym[k]}/dt", terms)
         return lines
@@ -408,8 +426,11 @@ def _from_spec(obj) -> _Drawing:
     return d
 
 
-def _from_kalman(model, monitored: Optional[List[str]] = None) -> _Drawing:
-    """Fitted KalmanThermalForecaster; ``monitored`` = monitored temperatures of a KalmanHeatDetector."""
+def _from_kalman(model, monitored: Optional[List[str]] = None, tracking: bool = True) -> _Drawing:
+    """Fitted KalmanThermalForecaster; ``monitored`` = monitored temperatures of a detector
+    (``tracking``: KalmanHeatDetector, else free-run residual detector)."""
+    free = getattr(model, "training", None) == "free"
+    tracking = bool(monitored) and tracking
     if getattr(model, "params", None) is None:
         raise ValueError("The Kalman model is not fitted yet.")
     p, spec = model.thermal_parameters_, model.network_
@@ -429,7 +450,7 @@ def _from_kalman(model, monitored: Optional[List[str]] = None) -> _Drawing:
     gains = p["steady_state_rise_K"]
     N.update({f"u:{u}": _Node("source", u.replace("²", " (squared)"), measured=True) for u, _ in gains})
     heated = [a for a in states if a in measured] if model.const_heat else []
-    N.update({f"c:{a}": _Node("attached", "constant heat into {of}" + (" (random walk)" if monitored else " (fitted)"),
+    N.update({f"c:{a}": _Node("attached", "constant heat into {of}" + (" (random walk)" if tracking else " (fitted)"),
                               of=f"s:{a}", symbol="c<sub>{i}</sub>") for a in heated})
     heat = [(f"s:{a}", f"o:{o}", k, f"k={k:.2g}/h") for (a, o), k in p["sink_rates"].items()]
     for i, a in enumerate(states):
@@ -439,12 +460,14 @@ def _from_kalman(model, monitored: Optional[List[str]] = None) -> _Drawing:
                 heat.append((f"s:{a}", f"s:{b}", max(kab, kba), lambda idx, a=a, b=b, kab=kab, kba=kba:
                              f"k<sub>{idx['s:' + a]},{idx['s:' + b]}</sub>={kab:.2g}<br>"
                              f"k<sub>{idx['s:' + b]},{idx['s:' + a]}</sub>={kba:.2g} /h"))
-    inputs = [(f"u:{u}", f"s:{a}", f"+{rise:.2g} K") for (u, a), rise in gains.items()]
+    inputs = [(f"u:{u}", f"s:{a}", f"{rise:+.2g} K") for (u, a), rise in gains.items()]  # < 0: cooling
     inputs += [(f"c:{a}", f"s:{a}", f"{p['const_heat'][a]:+.2g} K/h") for a in heated]
     d = _Drawing(
-        title="Kalman heat detector network" if monitored else f"Kalman heat network of {spec.target}",
+        title=("Kalman heat detector network" if tracking else "Free-run residual detector network"
+               if monitored else f"Kalman heat network of {spec.target}"),
         nodes=N, heat=heat, inputs=inputs,
-        sensors=[(f"s:{a}", f"y:{a}", f"σ={p['sensor_noise_K'][a]:.2g} K") for a in states if a in measured],
+        sensors=[(f"s:{a}", f"y:{a}", "not assimilated" if free else f"σ={p['sensor_noise_K'][a]:.2g} K")
+                 for a in states if a in measured],
         taus={f"s:{a}": v for a, v in p["time_constants_h"].items()})
 
     def equations(idx, sym):
@@ -455,23 +478,26 @@ def _from_kalman(model, monitored: Optional[List[str]] = None) -> _Drawing:
             others = sorted((("s:" if b in model.states_ else "o:") + b
                              for e in spec.all_edges if a in e for b in e if b != a), key=idx.get)
             terms = [f"k<sub>{i},{idx[o]}</sub>({sym[o]} − {sym[k]})" for o in others]
-            terms += [f"β<sub>{i},{idx['u:' + u]}</sub>{sym['u:' + u]}" for u, b in gains if b == a]
+            terms += [("−" if p["source_gains"][(u, b)] < 0 else "") + f"β<sub>{i},{idx['u:' + u]}</sub>{sym['u:' + u]}"
+                      for u, b in gains if b == a]
             if a in measured:
                 terms += [f"c<sub>{i}</sub>"] * model.const_heat + [f"γ<sub>{i}</sub>({out} − 10)"] * model.temp_heat
             lines += _wrap(f"d{sym[k]}/dt", terms)
-        lines.append("y<sub>i</sub> = T<sub>i</sub> + noise" + (", c<sub>i</sub>: random walks" if monitored else ""))
+        lines.append("y<sub>i</sub> = T<sub>i</sub> + noise" + (", c<sub>i</sub>: random walks" if tracking else "")
+                     + (" (free run: y used only as initial value)" if free else ""))
         return lines
 
     d.equations = equations
     d.footer.append("k, β, c, γ per unit heat capacity of the receiving state (1/h, K/h)"
-                    + ("; alarm indicator: steady-state excess −A<sup>−1</sup>c" if monitored else ""))
+                    + ("; alarm indicator: steady-state excess −A<sup>−1</sup>c" if tracking else
+                       "; alarm indicator: y − free-run simulation of T" if monitored else ""))
     return d
 
 
 def plot_thermal_network(obj, title: Optional[str] = None) -> go.Figure:
     """
     Draw the heat network of a ``ThermalNetworkSpec``, a ``PCRNNForecaster``, a fitted
-    ``KalmanThermalForecaster`` or a fitted ``KalmanHeatDetector``.
+    ``KalmanThermalForecaster`` or a fitted ``KalmanHeatDetector`` / ``FreeRunResidualDetector``.
 
     Same scheme for all models: colour = role (red: predicted temperatures and their sensors,
     blue: helpers), fill = observation (filled: measured, open: latent), circle = temperature,
@@ -485,8 +511,8 @@ def plot_thermal_network(obj, title: Optional[str] = None) -> go.Figure:
     :param title: Optional figure title
     :return: plotly Figure
     """
-    if hasattr(getattr(obj, "model", None), "track_heat"):  # KalmanHeatDetector
-        d = _from_kalman(obj.model, monitored=list(obj.monitored))
+    if hasattr(getattr(obj, "model", None), "track_heat"):  # KalmanHeatDetector / FreeRunResidualDetector
+        d = _from_kalman(obj.model, monitored=list(obj.monitored), tracking=hasattr(obj, "ss_std_per_day"))
     elif hasattr(obj, "track_heat"):                         # KalmanThermalForecaster
         d = _from_kalman(obj)
     else:

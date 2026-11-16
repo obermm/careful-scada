@@ -13,18 +13,18 @@ specific to the study:
   and the plots.
 
 Usage:
-    python examples/kalman_thermal_forecaster.py val  [--variants a,b,...]
+    python examples/Kalman_results/experiments/kalman_monitoring.py val  [--variants a,b,...]
         model selection: fit on the first 80 % of the training parts of datasets 83 and 86,
         RMSE on the remaining 20 % of each.
-    python examples/kalman_thermal_forecaster.py test [--variants a,b,...]
+    python examples/Kalman_results/experiments/kalman_monitoring.py test [--variants a,b,...]
         fit on all of datasets 83 and 86, test on dataset 77 (rotor-bearing damage,
         anomaly event 2023-06-01..2023-07-31): normal RMSE on 2023-05-18..05-31, mean event
         residual and SNR = (mean event residual - mean normal residual) / std of the normal residual.
-    python examples/kalman_thermal_forecaster.py monitor --out DIR [--methods kf:1,kf,pcrnn,lstm]
+    python examples/Kalman_results/experiments/kalman_monitoring.py monitor --out DIR [--methods kf:1,kf,pcrnn,lstm]
         fault monitor: physics fitted on healthy data (83 + 86 before 2022-10), optionally
         recalibrated per turbine on its first 90 days ("kf:<prior weight>"); thresholds from
         healthy turbines, detection on the main-bearing faults 77, 53, 27.
-    python examples/kalman_thermal_forecaster.py monitor-report --out DIR --methods ...
+    python examples/Kalman_results/experiments/kalman_monitoring.py monitor-report --out DIR --methods ...
         re-evaluates the saved indicators of DIR without refitting.
 """
 
@@ -40,6 +40,7 @@ import numpy as np
 import pandas as pd
 import jax.numpy as jnp
 
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 from care_scada.detector_factory import Detector, DetectorFactory
 from care_scada.model_factory import ModelFactory, feature_columns
 from care_scada.modeling.kalman_forecaster import KalmanThermalForecaster
@@ -492,7 +493,7 @@ def main():
     ap.add_argument("--burn-in-days", type=int, default=None,
                     help="monitor modes: no alarms in the first days of each series (default 90)")
     ap.add_argument("--variants", default=",".join(VARIANTS))
-    ap.add_argument("--data-path", default=os.path.join(os.path.dirname(__file__), "..", "dat",
+    ap.add_argument("--data-path", default=os.path.join(REPO_ROOT, "dat",
                                                         "Care_To_Compare"))
     ap.add_argument("--out", default=None, help="folder for results.jsonl and predictions")
     ap.add_argument("--data-cache", default=None, help="pickle of the preprocessed datasets "

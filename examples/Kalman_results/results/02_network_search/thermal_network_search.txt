@@ -1,0 +1,201 @@
+THERMAL NETWORK SEARCH - both main bearings, CARE Wind Farm B (healthy datasets 2, 21, 52, 74, 82, 83)
+=====================================================================================================
+Model   : experiments/network_search.py (library KalmanThermalForecaster network, free-run: NO bearing sensor
+          assimilated; bearings set to their measurement at each sequence start, latent nodes to steady state).
+Fit     : per dataset, output-error (MSE of both bearings), 800 Adam steps, 7-day chunks, 2 seeds (best train loss).
+Metrics : RMSE [K], mean over 6 datasets and both bearings.
+          val  = last 25 % of each train part (fit on the first 75 %)  -> used for selection
+          test = CARE test part (same fit)                              -> reported only
+Notation: edges a-b (k_ab, k_ba per state-state edge; 1 rate per state-boundary edge); sources s>n heat n
+          (s2 = squared, -s = cooling, negative gain); flags c = const heat per bearing, g = gamma*(T_out-10).
+          mb1/mb2 main bearings (states), out outside, gb1..4 gearbox bearings, oil gearbox oil, gen1/2 gen.
+          bearings (observed boundaries); P power, rot rotor speed, grpm gen speed, ws wind speed 1, pitch.
+          Any other node name (nac, hub, hous, ...) is a latent node.
+npar    : physics parameters (noise parameters irrelevant in free run).
+Raw results: results/02_network_search/raw/*.jsonl (per dataset/seed), greedy traces *_trace.txt.
+
+
+
+## Stage 1: one-factor sweep around the demo network (76 variants, sorted by val)
+Baseline (demo network) = 'mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 | c g'.
+Findings: wind cooling (-ws) is the only large gain (val 1.38 -> 1.17); latent nodes alone ~0; gb1 + out links of mb1
+essential (no gearbox link: 3.1 K); c/g flags ~0 on val; other temperatures / squared sources ~0.
+   val   test  t_mb1  t_mb2 npar  network
+ 1.165  1.201  1.244  1.159   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 -ws>mb2,mb1 | c g
+ 1.167  1.226  1.241  1.210   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 -ws>mb1 | c g
+ 1.184  1.214  1.251  1.177   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 -ws2>mb2,mb1 | c g
+ 1.185  1.239  1.258  1.219   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 -ws2>mb1 | c g
+ 1.188  1.259  1.327  1.192   20  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 nac-out nac-mb1 nac-mb2 | rot>mb2,mb1 P>mb2,mb1 -ws>nac | c g
+ 1.269  1.311  1.439  1.183   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 -ws2>mb2 | c g
+ 1.270  1.303  1.455  1.151   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 -ws>mb2 | c g
+ 1.305  1.292  1.331  1.254   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 -pitch>mb1 | c g
+ 1.309  1.268  1.335  1.201   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 -pitch>mb2,mb1 | c g
+ 1.349  1.439  1.486  1.392   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-gen2 mb2-gen2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.351  1.343  1.487  1.199   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 -pitch>mb2 | c g
+ 1.356  1.459  1.512  1.407   13  mb2-out mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.360  1.437  1.486  1.389   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb2-gen2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.361  1.379  1.454  1.303   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-gen1 mb2-gen1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.364  1.373  1.463  1.283   14  mb2-out mb2-gb2 mb1-mb2 mb1-out mb1-gb2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.369  1.386  1.365  1.406   12  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 | c
+ 1.370  1.372  1.453  1.292   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-gb2 mb2-gb2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.370  1.387  1.476  1.297   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 rot2>mb2,mb1 | c g
+ 1.371  1.410  1.482  1.338   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb2-gen1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.372  1.389  1.468  1.310   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 grpm>mb1 | c g
+ 1.373  1.388  1.470  1.305   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-gb2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.373  1.425  1.524  1.326   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-gen2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.374  1.388  1.473  1.303   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 grpm>mb2,mb1 | c g
+ 1.375  1.394  1.481  1.307   17  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 hub-out hub-mb2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.375  1.386  1.475  1.298   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb2-gb2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.376  1.388  1.473  1.303   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 pitch>mb2 | c g
+ 1.377  1.391  1.479  1.303   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 grpm>mb2 | c g
+ 1.378  1.386  1.479  1.293   17  mb2-gb1 mb1-gb1 mb1-mb2 nac-out nac-mb1 nac-mb2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.378  1.386  1.479  1.293   17  mb2-gb1 mb1-gb1 mb1-mb2 hous-out hous-mb1 hous-mb2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.378  1.395  1.486  1.304   20  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 nac-out nac-mb1 nac-mb2 | rot>mb2,mb1 P>mb2,mb1 P>nac | c g
+ 1.378  1.399  1.490  1.307   19  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 nac-out nac-mb1 nac-mb2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.378  1.399  1.490  1.307   19  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 hous-out hous-mb1 hous-mb2 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.378  1.391  1.477  1.306   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 ws2>mb2,mb1 | c g
+ 1.379  1.396  1.483  1.308   20  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 nac-out nac-mb1 nac-mb2 nac-gb1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.379  1.393  1.480  1.306   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 ws>mb1 | c g
+ 1.379  1.391  1.474  1.307   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 ws>mb2 | c g
+ 1.379  1.389  1.473  1.305   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 ws2>mb2 | c g
+ 1.379  1.393  1.480  1.306   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 ws2>mb1 | c g
+ 1.379  1.388  1.475  1.300   18  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 hub-out hub-mb1 | rot>mb2,mb1 P>mb2,mb1 rot>hub | c g
+ 1.379  1.389  1.477  1.301   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 pitch>mb1 | c g
+ 1.380  1.390  1.477  1.304   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 pitch>mb2,mb1 | c g
+ 1.380  1.389  1.477  1.301   14  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.381  1.387  1.478  1.297   20  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 s1-mb1 s1-out s2-mb2 s2-out | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.381  1.392  1.477  1.307   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 ws>mb2,mb1 | c g
+ 1.381  1.390  1.479  1.301   17  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 hub-out hub-mb1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.382  1.385  1.477  1.293   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb2-gb4 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.383  1.282  1.227  1.338   10  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 |
+ 1.384  1.413  1.522  1.305   12  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 | g
+ 1.384  1.383  1.462  1.303   13  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2 | c g
+ 1.384  1.386  1.493  1.279   14  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot2>mb2,mb1 P>mb2,mb1 | c g
+ 1.385  1.392  1.477  1.307   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb2-gb3 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.385  1.404  1.494  1.314   19  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 shaft-mb1 shaft-mb2 shaft-gb1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.385  1.373  1.455  1.290   12  mb2-out mb2-gb1 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.388  1.396  1.494  1.298   13  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | P>mb2,mb1 rot>mb2 | c g
+ 1.388  1.385  1.480  1.291   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb2-oil | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.388  1.395  1.494  1.295   20  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 nac-out nac-mb1 nac-mb2 nac-oil | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.389  1.384  1.470  1.298   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-gb4 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.391  1.401  1.499  1.302   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 P2>mb2,mb1 | c g
+ 1.391  1.413  1.547  1.278   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-gen1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.396  1.398  1.487  1.309   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-gb3 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.397  1.381  1.470  1.292   15  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-oil | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.398  1.426  1.505  1.347   13  mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.398  1.390  1.474  1.306   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-gb3 mb2-gb3 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.399  1.374  1.457  1.291   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-gb4 mb2-gb4 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.401  1.406  1.496  1.317   14  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P2>mb2,mb1 | c g
+ 1.402  1.484  1.550  1.418   13  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 P>mb1 | c g
+ 1.409  1.370  1.460  1.279   16  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 mb1-oil mb2-oil | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.425  1.463  1.420  1.505   12  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot>mb2,mb1 | c g
+ 1.438  1.395  1.469  1.321   13  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | P>mb2,mb1 rot>mb1 | c g
+ 1.473  1.408  1.508  1.307   12  mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | P>mb2,mb1 | c g
+ 1.475  1.385  1.484  1.286   14  mb2-out mb2-oil mb1-mb2 mb1-out mb1-oil | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.481  1.538  1.752  1.324   13  mb2-out mb2-gb1 mb1-mb2 mb1-out | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.576  1.709  1.878  1.540   14  mb2-out mb2-gen1 mb1-mb2 mb1-out mb1-gen1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 1.631  1.535  1.718  1.351   13  mb2-out mb2-gb1 mb1-mb2 mb1-gb1 | rot>mb2,mb1 P>mb2,mb1 | c g
+ 3.147  2.808  2.394  3.222    8  mb2-out mb1-out mb1-mb2 | rot>mb2,mb1 | c
+ 3.180  2.841  2.410  3.272    6  mb2-out mb1-out | rot>mb2,mb1 | c
+
+## Stage 2: complete latent-node structures (local run, 2 seeds)
+Base = 'mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out | rot>mb1,mb2 P>mb1,mb2 -ws>mb1,mb2 | c g' (val 1.165, test 1.201).
+Finding: no latent structure (nacelle, hub, shaft, slow masses) beats the base; all val 1.17-1.25.
+Side tests: '-tdev2' (quadratic T_out cooling) val 1.153/test 1.209 (~noise); 4x chunk length or 2.5x steps: val 1.157 (optimizer ok).
+   val   test  t_mb1  t_mb2 npar  network
+ 1.153  1.232  1.346  1.118   24  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out nac-out nac-mb1 nac-mb2 nac-gb1 | rot>mb1,mb2 P>mb1,mb2 -ws>nac,mb1,mb2 -tdev2>nac | c g
+ 1.166  1.204  1.247  1.160   21  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out hub-out hub-mb1 | rot>mb1,mb2 P>mb1,mb2 -ws>hub,mb1,mb2 rot>hub | c g
+ 1.167  1.212  1.248  1.176   22  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out sh-mb1 sh-mb2 sh-gb1 | rot>mb1,mb2 P>mb1,mb2 -ws>mb1,mb2 rot>sh | c g
+ 1.170  1.207  1.250  1.165   23  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out m-mb1 m-mb2 m-out m-gb1 | rot>mb1,mb2 P>mb1,mb2 -ws>m,mb1,mb2 | c g
+ 1.170  1.207  1.250  1.165   23  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out nac-out nac-mb1 nac-mb2 nac-gb1 | rot>mb1,mb2 P>mb1,mb2 -ws>nac,mb1,mb2 | c g
+ 1.171  1.209  1.254  1.164   24  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out m1-mb1 m2-mb2 m1-out m2-out | rot>mb1,mb2 P>mb1,mb2 -ws>m1,m2,mb1,mb2 | c g
+ 1.173  1.242  1.305  1.178   17  mb1-mb2 nac-out nac-mb1 nac-mb2 nac-gb1 | rot>mb1,mb2 P>mb1,mb2 -ws>nac | c g
+ 1.173  1.220  1.265  1.175   22  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out hub-out hub-mb1 hub-mb2 | rot>mb1,mb2 P>mb1,mb2 -ws>hub,mb1,mb2 | c g
+ 1.173  1.266  1.331  1.200   22  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out nac-out nac-mb1 nac-mb2 nac-gen1 nac-gen2 | rot>mb1,mb2 P>mb1,mb2 -ws>nac | c g
+ 1.173  1.230  1.318  1.142   19  mb1-mb2 nac-out nac-mb1 nac-mb2 nac-gb1 nac-gen1 | rot>mb1,mb2 P>mb1,mb2 -ws>nac P>nac | c g
+ 1.175  1.239  1.312  1.166   24  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out nac-out nac-mb1 nac-mb2 nac-gb1 nac-gen1 | rot>mb1,mb2 P>mb1,mb2 -ws>nac P>nac rot>nac | c g
+ 1.180  1.241  1.307  1.175   21  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out nac-out nac-mb1 nac-mb2 nac-gb1 | rot>mb1,mb2 P>mb1,mb2 -ws>nac | c g
+ 1.186  1.241  1.304  1.177   26  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out nac-out nac-mb1 nac-mb2 nac-gb1 hub-out hub-mb1 | rot>mb1,mb2 P>mb1,mb2 -ws>nac,hub rot>hub | c g
+ 1.188  1.247  1.339  1.155   23  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out nac-out nac-mb1 nac-mb2 nac-oil nac-gen1 | rot>mb1,mb2 P>mb1,mb2 -ws>nac P>nac | c g
+ 1.191  1.271  1.363  1.179   19  mb1-gb1 mb2-gb1 mb1-mb2 nac-out nac-mb1 nac-mb2 nac-gb1 | rot>mb1,mb2 P>mb1,mb2 -ws>nac | c g
+
+## Stage 3: greedy chain gA (2 seeds, free run), top 15 of all evaluated moves
+Greedy from the stage-2 base; stopped after 3 steps: seed noise ~0.01 K val (an irrelevant latent node 'nac-oil'
+changed val by 0.007) exceeded the thresholds (gain 0.005, drop 0.003). Best moves (+rot2, +gen2 links) gain <= 0.03 K.
+Trace: raw/gA_trace.txt.
+   val   test  t_mb1  t_mb2 npar  network
+ 1.130  1.233  1.253  1.213   15  mb1-gb1 mb1-mb2 mb1-out mb2-out | -ws>mb1 P>mb1 P>mb2 rot2>mb1 rot>mb1 rot>mb2 | c g
+ 1.132  1.234  1.256  1.212   16  mb1-gb1 mb1-mb2 mb1-out mb2-out | -ws>mb1 -ws>mb2 P>mb1 P>mb2 rot2>mb1 rot>mb1 rot>mb2 | c g
+ 1.133  1.189  1.252  1.127   17  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out | -ws>mb1 -ws>mb2 P>mb1 P>mb2 rot2>mb2 rot>mb1 rot>mb2 | c g
+ 1.136  1.221  1.257  1.185   15  mb1-gb1 mb1-mb2 mb1-out mb2-out | -ws>mb1 P>mb1 P>mb2 rot2>mb2 rot>mb1 rot>mb2 | c g
+ 1.140  1.199  1.228  1.169   17  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out | -ws>mb1 -ws>mb2 P>mb1 P>mb2 rot2>mb1 rot>mb1 rot>mb2 | c g
+ 1.140  1.268  1.306  1.230   16  mb1-gb1 mb1-gen2 mb1-mb2 mb1-out mb2-out | -ws>mb1 -ws>mb2 P>mb1 P>mb2 rot>mb1 rot>mb2 | c g
+ 1.140  1.225  1.263  1.186   16  mb1-gb1 mb1-mb2 mb1-out mb2-out | -ws>mb1 -ws>mb2 P>mb1 P>mb2 rot2>mb2 rot>mb1 rot>mb2 | c g
+ 1.141  1.266  1.306  1.227   15  mb1-gb1 mb1-gen2 mb1-mb2 mb1-out mb2-out | -ws>mb1 P>mb1 P>mb2 rot>mb1 rot>mb2 | c g
+ 1.143  1.242  1.241  1.243   17  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-gen2 mb2-out | -ws>mb1 -ws>mb2 P>mb1 P>mb2 rot>mb1 rot>mb2 | c g
+ 1.147  1.328  1.273  1.383   16  mb1-gb1 mb1-mb2 mb1-out mb2-gen2 mb2-out | -ws>mb1 -ws>mb2 P>mb1 P>mb2 rot>mb1 rot>mb2 | c g
+ 1.149  1.234  1.301  1.168   15  mb1-gb1 mb1-gen1 mb1-mb2 mb1-out mb2-out | -ws>mb1 P>mb1 P>mb2 rot>mb1 rot>mb2 | c g
+ 1.149  1.313  1.247  1.379   15  mb1-gb1 mb1-mb2 mb1-out mb2-gen2 mb2-out | -ws>mb1 P>mb1 P>mb2 rot>mb1 rot>mb2 | c g
+ 1.152  1.223  1.261  1.185   16  mb1-gb1 mb1-gb2 mb1-mb2 mb1-out mb2-out | -ws>mb1 -ws>mb2 P>mb1 P>mb2 rot>mb1 rot>mb2 | c g
+ 1.152  1.236  1.303  1.170   16  mb1-gb1 mb1-gen1 mb1-mb2 mb1-out mb2-out | -ws>mb1 -ws>mb2 P>mb1 P>mb2 rot>mb1 rot>mb2 | c g
+ 1.156  1.237  1.269  1.206   17  hub-mb1 hub-out mb1-gb1 mb1-mb2 mb1-out mb2-out | -ws>mb1 P>mb1 P>mb2 rot>mb1 rot>mb2 | c g
+
+## Diagnosis of the free-run floor
+Daily-mean free-run residual of the stage-2 base vs. ALL available signals (daily + 3/7-day rolling means, gradient
+boosting, 5-fold time-block CV): R2 <= 0.17 on all 6 healthy turbines (mostly < 0); vs. time/day-of-year: R2 <= 0.25.
+-> the remaining ~1 K (daily-scale offsets, correlated between bearings, r=0.6-0.9) is drift not explained by any sensor;
+   free-run RMSE floor with these sensors ~1.1 K. Further free-run structure search only reshuffles noise.
+-> next: cross mode = each bearing predicted with the OTHER bearing clamped to its measurement (assimilated, as in the
+   library predict); common drift cancels.
+
+## Stage 4: minimal networks (local, 3 seeds)
+Sparse nets around wind cooling. Dropping P: +0.2-0.5 K. Without c/g val worse (1.28) but test BETTER (1.12):
+val (late train) and test disagree at the 0.1 K level -> selection must look at both.
+   val   test  t_mb1  t_mb2 npar  network
+ 1.170  1.249  1.283  1.214   14  mb1-gb1 mb1-mb2 mb1-out mb2-out | rot>mb1,mb2 P>mb1,mb2 -ws>mb1 | c g
+ 1.276  1.116  1.009  1.223   12  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out | rot>mb1,mb2 P>mb1,mb2 -ws>mb1,mb2 |
+ 1.395  1.402  1.196  1.608   12  mb1-gb1 mb1-mb2 mb1-out mb2-out | rot>mb1,mb2 P>mb1,mb2 -ws>mb1 | c
+ 1.440  1.407  1.133  1.682   12  mb1-gb1 mb1-mb2 mb1-out mb2-out | rot>mb1,mb2 rot2>mb1,mb2 -ws>mb1 | c
+ 1.661  1.408  1.104  1.713   10  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out | rot>mb1,mb2 -ws>mb1,mb2 |
+ 1.677  1.439  1.089  1.789    8  mb1-gb1 mb1-mb2 mb1-out mb2-out | rot>mb1,mb2 -ws>mb1 |
+ 1.681  1.521  1.198  1.843    9  mb1-gb1 mb1-mb2 mb1-out | rot>mb1,mb2 -ws>mb1 | c
+ 1.687  1.550  1.257  1.844   12  mb1-gb1 mb1-mb2 mb1-out mb2-gb1 mb2-out | rot>mb1,mb2 -ws>mb1,mb2 | c
+ 1.713  1.577  1.204  1.949   10  mb1-gb1 mb1-mb2 mb1-out mb2-out | rot>mb1,mb2 -ws>mb1 | c
+ 1.714  1.577  1.204  1.950   11  mb1-gb1 mb1-mb2 mb1-out mb2-out | rot>mb1,mb2 -ws>mb1,mb2 | c
+ 2.136  1.969  1.637  2.300    8  mb1-gb1 mb1-mb2 mb1-out | rot>mb1 -ws>mb1 | c
+ 2.147  1.989  1.656  2.323    9  mb1-gb1 mb1-mb2 mb1-out mb2-out | rot>mb1 -ws>mb1 | c
+
+## Stage 5: greedy chain gC (3 seeds, gain >= 0.015, drop tol 0.008, pool of 81 elements: links to all temperatures,
+## all sources +/- and squared, c/g, latent modules). Trace: raw/gC_trace.txt
+   val   test npar  move
+ 1.167  1.200   16  start = stage-2 base
+ 1.164  1.180   14  drop mb1-mb2   (bearings need no direct coupling)
+ 1.134  1.168   15  add rot2>mb1
+ 1.123  1.142   14  drop P>mb1
+ 1.123  1.146   13  drop rot>mb1
+ 1.100  1.131   14  add rot2>mb2
+ 1.092  1.175   13  drop P>mb2     (val ok, test +0.04)
+ 1.091  1.164   12  drop rot>mb2   -> converged: mb1-gb1 mb1-out mb2-gb1 mb2-out | -ws>mb1,mb2 rot2>mb1,mb2 | c g
+Never accepted (best val gain <= 0.012): latent nac/hub nodes, gen1/gen2/oil/gb2 links, pitch, -tdev2, -ws2.
+Note: rot2 (quadratic rotor speed = friction) replaces rot and mostly P; the decoupled-bearing form is stable.
+
+## FINAL: refit on the FULL train part, test = CARE test part (3 seeds); val/vtest from the 75 % fit (selection run)
+   val  vtest   test  t_mb1 t_mb2 xtest worst npar  network
+ 1.278  1.094  1.020  0.861 1.180 1.020 1.373    8  mb1-gb1 mb1-out mb2-gb1 mb2-out | -ws>mb1,mb2 rot2>mb1,mb2 |          <- SIMPLE
+ 1.227  1.047  0.985  0.892 1.077 0.985 1.336   10  mb1-gb1 mb1-out mb2-gb1 mb2-out | -ws>mb1,mb2 P>mb1,mb2 rot2>mb1,mb2 |  <- MEDIUM
+ 1.209  1.062  0.997  0.918 1.076 0.891 1.311   12  MEDIUM + mb1-mb2                         (coupled; best xtest)
+ 1.299  1.107  1.041  0.950 1.132 1.041 1.563   10  MEDIUM with rot instead of rot2
+ 1.277  1.117  1.049  0.959 1.139 0.924 1.549   12  stage-4 net (MEDIUM + mb1-mb2, rot instead of rot2)
+ 1.105  1.127  1.016  0.974 1.057 1.016 1.712   15  gC step-3 + rot2>mb2 (c g)                (best val)
+ 1.100  1.131  1.021  0.990 1.052 1.021 1.707   14  gC step 5 (c g)
+ 1.091  1.164  1.044  0.990 1.097 1.044 1.699   12  gC final = SIMPLE + c g
+ 1.198  1.196  1.103  0.989 1.217 1.103 1.735   10  SIMPLE + g
+ 1.371  1.294  1.170  0.980 1.360 1.170 1.931   10  SIMPLE + c
+ 1.167  1.200  1.064  1.025 1.102 0.944 1.696   16  stage-2 base (demo + -ws)
+ 1.380  1.389  1.290  1.314 1.266 1.126 1.798   14  demo network (baseline)
+Per-dataset test (ds 2/21/52/74/82/83): SIMPLE 0.94/0.80/0.85/1.20/0.96/1.37, MEDIUM 0.86/0.77/0.69/1.28/0.96/1.34,
+gC final (c g) 1.16/0.76/0.84/1.30/0.50/1.70.
+Conclusion: c/g fit the late-train val window better (-0.13 K) but extrapolate worse to test (+0.03..0.06 K mean,
+worst dataset 1.34 -> 1.70): they absorb seasonal offsets that do not transfer. Dropping them is simpler AND more robust.
+Bearings need no direct coupling (mb1-mb2 only helps the clamped prediction, xtest 0.985 -> 0.891).
+RECOMMENDED: SIMPLE (8 par, test 1.02 K) and MEDIUM (10 par, test 0.985 K); 24 % / 31 % below the demo network.

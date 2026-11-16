@@ -1,0 +1,112 @@
+MAIN-BEARING FAULT DETECTION - Kalman thermal networks, CARE Wind Farm B
+=========================================================================
+Code   : experiments/fault_detection.py (indicators, SLURM: runners/fd_job.sh), experiments/fault_eval.py (alarm routines, tables)
+Data   : full series (train+test) of healthy 2, 21, 52, 74, 82, 83 and fault datasets 77, 53 (Rotor Bearing 2
+         damage), 27 (main bearing, side unknown). Events: 77 2023-06-01, 53 2023-12-26, 27 2023-09-01.
+Models : demo   = mb2-out mb2-gb1 mb1-mb2 mb1-out mb1-gb1 | rot P | c g
+         simple = mb1-gb1 mb1-out mb2-gb1 mb2-out | -ws rot2 |          (8 par)
+         medium = simple + P                                             (10 par)
+Fit    : shared physics on the pooled healthy turbines, leave-one-turbine-out (a healthy turbine is never in its
+         own fit; faults use all 6), free-run MSE, noise q/r by Kalman NLL; then per turbine refit on its first
+         90 days (L2 prior 1, as KalmanHeatDetector). No alarms in the first 90 days.
+         ("kalman" = all-NLL fit was also run: same picture, see ~/.cache/care_faultdet/r2/eval.csv)
+Indicators (daily means, per bearing):
+  heat  Kalman-tracked steady-state excess heat (library track_heat, both bearings assimilated)
+  res   free-run residual (measured - simulated, no bearing assimilated)
+  fric  NEW: friction-gain tracker - joint Kalman tracking of a constant heat c and an extra heat g*rot^2 per
+        bearing (random walks); fric = steady excess of g at full load (load-dependent fault heat only)
+Signal sets: per bearing | mb2-mb1 (both signs) | xreg = bearing - alpha*other (alpha by regression on days 30-90)
+Thresholds: maximum of the statistic over the healthy turbines (leave-one-turbine-out for healthy ones);
+         margin 1.15 = 15 % above that.
+Metrics: FA = healthy turbines (of 6) with any alarm; wrong = fault datasets alarmed on the healthy bearing first;
+         lead = event start - first alarm on the damaged bearing (days, >0 = early; - = no alarm);
+         ramp = share of synthetic ramps detected within 90 d (6 turbines x 2 bearings x 3 starts = 36 each),
+         0 -> A K over 30 d then held, added to ONE bearing; offset = constant, load = proportional to rot^2
+         (low-passed 3 h, same mean); delay3K = median days to alarm for 3 K offset ramps.
+         Noise: ramp rates +/-0.08 (binomial SE), FA from only 6 turbines -> differences < ~0.15 not significant.
+
+## Failure analysis of the existing detectors (D1/D2: rise + level CUSUM, lagged rolling-median baseline)
+1. Slow faults are absorbed: the level baseline (median of days t-90..t-30) follows the months-long rise of 77
+   (heat mb2 +5 K from 2022-11 to 2023-06); the rise CUSUM needs ~5 K of net increments (threshold).
+2. Thresholds are set by healthy seasonal misfit integrated by the CUSUM (level thresholds 100-200 K*day); one
+   healthy turbine (ds 2, both bearings +3-4 K in winter/spring 2023) dominates; it then alarms itself (LOO).
+3. Alarms right after the burn-in (tracker transient, baseline still contains the start-up).
+4. Per-bearing signals carry drifts common to both bearings (82, 83, 74); asymmetry cancels them, but a plain
+   mb2-mb1 inherits the full noise of the other bearing -> xreg (alpha < 1) is better.
+5. The fleet does not help: healthy indicators of different turbines are almost uncorrelated (r = 0.1-0.4), so
+   subtracting the fleet median does not reduce the noise (tested).
+New routines: fixed per-turbine baseline (median of days 30-90), 14-day trailing mean, 7 consecutive days above
+threshold (D3, D4); or 14-day mean minus the median of the 90 days ending 60 days ago (D5). Plus friction tracker (D6).
+
+## Results (fit "free"; table = fault_eval.py --final)
+threshold = 1 x max over the other healthy turbines
+detector                                                   net    FA wrong  lead77 lead53 lead27 | offset ramp 1/2/3K  | load ramp 1/2/3K | delay3K
+D1 existing: heat, per bearing, rise+level CUSUM           demo    2    0      10    -39    132 | 0.19 0.42 0.67      | 0.17 0.44 0.78   |    38
+D1 existing: heat, per bearing, rise+level CUSUM           simple  1    0     -29     -7    272 | 0.11 0.17 0.28      | 0.11 0.17 0.42   |    24
+D1 existing: heat, per bearing, rise+level CUSUM           medium  2    0     -33     -8    -22 | 0.03 0.08 0.19      | 0.03 0.08 0.22   |    35
+D2 existing: heat, mb2-mb1 +/-, rise+level CUSUM           demo    2    0     -29     -6    -22 | 0.06 0.14 0.42      | 0.06 0.25 0.47   |    52
+D2 existing: heat, mb2-mb1 +/-, rise+level CUSUM           simple  2    0       6     -6    199 | 0.08 0.33 0.92      | 0.06 0.36 0.89   |    57
+D2 existing: heat, mb2-mb1 +/-, rise+level CUSUM           medium  2    0     -12     -6    -22 | 0.06 0.22 0.72      | 0.11 0.22 0.61   |    64
+D3 new: heat, xreg, fixed base, 14d mean, 7d persist       demo    1    0      55      0     95 | 0.22 0.44 0.78      | 0.22 0.42 0.83   |    37
+D3 new: heat, xreg, fixed base, 14d mean, 7d persist       simple  1    0      78      0     92 | 0.14 0.42 0.69      | 0.17 0.39 0.67   |    37
+D3 new: heat, xreg, fixed base, 14d mean, 7d persist       medium  1    0      72     -1     92 | 0.17 0.42 0.72      | 0.17 0.44 0.72   |    38
+D4 new: free-run res, xreg, fixed base, 14d, 7d persist    demo    1    0      75      2     96 | 0.17 0.50 0.86      | 0.17 0.50 0.89   |    36
+D4 new: free-run res, xreg, fixed base, 14d, 7d persist    simple  1    0     118      2     94 | 0.17 0.47 0.86      | 0.19 0.47 0.83   |    37
+D4 new: free-run res, xreg, fixed base, 14d, 7d persist    medium  1    0      79      0     47 | 0.11 0.28 0.53      | 0.14 0.28 0.61   |    37
+D5 new: free-run res, xreg, 14d mean - lagged base         demo    1    0      62      4     56 | 0.06 0.22 0.83      | 0.06 0.36 0.86   |    40
+D5 new: free-run res, xreg, 14d mean - lagged base         simple  1    0      86      5     46 | 0.19 0.58 0.92      | 0.22 0.64 0.92   |    31
+D5 new: free-run res, xreg, 14d mean - lagged base         medium  1    0      81      1    267 | 0.06 0.44 0.78      | 0.08 0.44 0.86   |    34
+D6 new: friction-gain tracker, mb2-mb1, lagged base        demo    1    0      -6      -      - | 0.03 0.03 0.03      | 0.06 0.39 0.75   |    29
+D6 new: friction-gain tracker, mb2-mb1, lagged base        simple  1    0      28    -13      - | 0.03 0.03 0.03      | 0.14 0.72 0.97   |    77
+D6 new: friction-gain tracker, mb2-mb1, lagged base        medium  1    0       8      -      - | 0.03 0.03 0.03      | 0.11 0.47 0.89   |    37
+
+threshold = 1.15 x max over the other healthy turbines
+detector                                                   net    FA wrong  lead77 lead53 lead27 | offset ramp 1/2/3K  | load ramp 1/2/3K | delay3K
+D1 existing: heat, per bearing, rise+level CUSUM           demo    0    0       3      -    107 | 0.08 0.31 0.58      | 0.08 0.33 0.56   |    46
+D1 existing: heat, per bearing, rise+level CUSUM           simple  1    0     -33     -8    -22 | 0.03 0.06 0.14      | 0.06 0.08 0.25   |    32
+D1 existing: heat, per bearing, rise+level CUSUM           medium  2    0     -33      -    -22 | 0.03 0.06 0.11      | 0.03 0.06 0.17   |    39
+D2 existing: heat, mb2-mb1 +/-, rise+level CUSUM           demo    2    0     -33     -6      - | 0.06 0.06 0.31      | 0.06 0.19 0.33   |    52
+D2 existing: heat, mb2-mb1 +/-, rise+level CUSUM           simple  0    0     -12     -6     35 | 0.06 0.25 0.78      | 0.06 0.25 0.75   |    60
+D2 existing: heat, mb2-mb1 +/-, rise+level CUSUM           medium  2    0     -21     -7    -22 | 0.08 0.22 0.50      | 0.08 0.19 0.47   |    62
+D3 new: heat, xreg, fixed base, 14d mean, 7d persist       demo    0    0      54     -2     91 | 0.11 0.31 0.67      | 0.11 0.31 0.69   |    38
+D3 new: heat, xreg, fixed base, 14d mean, 7d persist       simple  1    0      74     -3     46 | 0.11 0.33 0.61      | 0.08 0.33 0.50   |    41
+D3 new: heat, xreg, fixed base, 14d mean, 7d persist       medium  0    0      56     -4     74 | 0.11 0.36 0.58      | 0.11 0.39 0.56   |    39
+D4 new: free-run res, xreg, fixed base, 14d, 7d persist    demo    1    0      58      2     94 | 0.14 0.31 0.78      | 0.14 0.44 0.83   |    38
+D4 new: free-run res, xreg, fixed base, 14d, 7d persist    simple  0    0      83      2     90 | 0.11 0.33 0.69      | 0.11 0.36 0.75   |    40
+D4 new: free-run res, xreg, fixed base, 14d, 7d persist    medium  0    0      58     -1    -26 | 0.08 0.22 0.42      | 0.11 0.25 0.42   |    40
+D5 new: free-run res, xreg, 14d mean - lagged base         demo    1    0      60      1     49 | 0.06 0.08 0.53      | 0.06 0.22 0.78   |    39
+D5 new: free-run res, xreg, 14d mean - lagged base         simple  1    0      85      2    -24 | 0.06 0.39 0.81      | 0.08 0.42 0.92   |    35
+D5 new: free-run res, xreg, 14d mean - lagged base         medium  1    0      61     -1    -24 | 0.06 0.17 0.58      | 0.06 0.28 0.69   |    34
+D6 new: friction-gain tracker, mb2-mb1, lagged base        demo    1    0     -31      -      - | 0.03 0.03 0.03      | 0.06 0.28 0.67   |    32
+D6 new: friction-gain tracker, mb2-mb1, lagged base        simple  0    0       7    -19      - | 0.00 0.00 0.00      | 0.08 0.58 0.89   |   nan
+D6 new: friction-gain tracker, mb2-mb1, lagged base        medium  1    0      -1      -      - | 0.00 0.00 0.00      | 0.08 0.36 0.78   |   nan
+## Conclusions
+* New fixed-baseline xreg detectors (D3-D5) beat the existing CUSUMs on every network: 77 detected 55-118 d before
+  the event (existing: -33..+10 d), 53 at the event (0-5 d; its rise only starts ~2 weeks before), 27 ~3 months
+  before (ambiguous: 27's bearing-1 indicator rises from 2023-06; not labelled), 1 FA turbine at margin 1.0,
+  0 at margin 1.15 for the best combinations (D3 demo/medium, D4 simple). No wrong-bearing alarms.
+* Ramp sensitivity is limited by the healthy slow drift of the indicators (~1 K std of 14-day means, single
+  turbines up to 2-4 K): 1 K ramps are not detectable (<= 22 %), 2 K ~ 40-60 %, 3 K ~ 70-90 % within 90 days
+  (median delay ~ 35 d, i.e. once the ramp is complete).
+* Network: no consistent ranking - demo and simple are on par, medium is slightly worse; better prediction RMSE
+  (medium) does not give better detection, the indicator's slow drift (not its RMSE) decides.
+* Free-run residual (D4/D5) >= Kalman heat (D3); the Kalman heat tracker mainly adds smoothing.
+* Friction tracker (D6): excellent for load-proportional ramps (simple: 72 % at 2 K, 97 % at 3 K) but blind to
+  offsets and misses 53 and 27; healthy turbines show large load-dependent drifts (ds 2, 21) -> not recommended
+  alone; real faults are a mix of load-dependent (77, 53: high-load gap grows ~3x faster) and offset heating.
+* Recommended: simple network + D4 (free-run residual, xreg, fixed baseline, 14-d mean, 7-d persistence), or
+  D3 with the Kalman heat tracker; threshold margin ~1.15 for zero false alarms on the 6 healthy turbines.
+Figure: results/03_fault_detection/fault_detection_positives.png (statistics of D1, D3, D4 on 27/53/77, simple network).
+
+LIBRARY (2026-11-16): D4 added to care_scada/detector_factory.py
+  DetectorFactory.create("freerun", network=spec, cooling=[...])  -> FreeRunResidualDetector
+  (free-run residual, refit on first 90 d, cross reference, fixed-baseline 14 d mean / 7 d persist,
+  margin 1.15). Base Detector gained alarm="cusum"|"level", reference="none"|"cross", margin
+  (defaults keep the old CUSUM behaviour), so D3 = create("kalman", ..., alarm="level", reference="cross").
+  Check (experiments/d4_factory_check.py, runners/d4check_job.sh, simple net, real series): residuals identical to r2 (corr 1.0, MAD 0.0);
+  margin 1.00: FA 1 (ds 2), leads 118/2/94; margin 1.15: FA 0, leads 83/2/90 -- same as the table above.
+  Update: the free-run model now lives in KalmanThermalForecaster (cooling=[...], training="free",
+  simulate()); FreeRunResidualDetector uses ModelFactory.create("kalman", training="free", ...).
+  Re-check (job 142292): identical (corr 1.0, MAD 0.0; margin 1.15: FA 0, leads 83/2/90).
+  basic_usage.ipynb now demonstrates networks 1 simple / 2 medium / 3 baseline(demo) and all three
+  detectors x {cusum, level+cross} (fit on 83 + early 86, thresholds from the 6 healthy).

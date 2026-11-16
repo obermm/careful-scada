@@ -232,6 +232,29 @@ def test_pcrnn_recovers_true_parameters(thermal_data):
     assert _rmse(model.predict(test, TARGET), test) < 0.2
 
 
+def test_pcrnn_cooling_source(thermal_data):
+    # negated temperatures: the same network with rpm as a cooling source (gain -TRUE_BETA)
+    train, test = (df.assign(**{c: -df[c] for c in (TARGET, "amb", "nb")}) for df in thermal_data)
+    model = ModelFactory.create("pcrnn", **NETWORK, cooling=[("rpm", TARGET)], residual=False, epochs=30,
+                                batch_size=64, window=24)
+    model.fit(train, TARGET)
+    params = model.thermal_parameters_
+    assert params["source_gains"][("rpm", TARGET)] == pytest.approx(-TRUE_BETA, rel=0.1)
+    assert params["steady_state_rise_K"][("rpm", TARGET)] < 0
+    assert _rmse(model.predict(test, TARGET), test) < 0.2
+
+
+def test_spec_retarget():
+    spec = ThermalNetworkSpec(target=TARGET, neighbours=["amb"], sources={"rpm": "linear"}).with_measured_states(["nb"])
+    flipped = spec.retarget("nb")
+    assert flipped.target == "nb" and flipped.measured_states == [TARGET]
+    assert set(map(frozenset, flipped.all_edges)) == set(map(frozenset, spec.all_edges))
+    assert sorted(flipped.source_links) == sorted(spec.source_links)
+    assert flipped.retarget(TARGET).target == TARGET and spec.retarget(TARGET) is spec
+    with pytest.raises(ValueError):
+        spec.retarget("amb")
+
+
 def test_pcrnn_time_steps_follow_index(thermal_data):
     train, _ = thermal_data
     model = ModelFactory.create("pcrnn", **NETWORK, max_gap_hours=2.0)

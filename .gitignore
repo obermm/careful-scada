@@ -7,3 +7,5 @@ careful-scada.code-workspace
 .pytest_cache/
 *.egg-info/
 dat/
+examples/Kalman_results/runners
+examples/Kalman_results/results/02_network_search/raw

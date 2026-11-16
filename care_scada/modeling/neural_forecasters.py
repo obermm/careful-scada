@@ -245,6 +245,7 @@ class ThermalNetworkNet(nn.Module):
     src_links: tuple            # ((i, k), ...) source k heats state i
     y_mean: float
     y_std: float
+    src_signs: tuple = ()       # +1 heating / -1 cooling per source link (default: all heating)
     mode: str = "hard"
     residual: bool = True
     hidden_size: int = 16
@@ -269,7 +270,8 @@ class ThermalNetworkNet(nn.Module):
         B = jnp.zeros((ns, nu))
         if self.src_links:
             li, lk = (np.array(v, dtype=int) for v in zip(*self.src_links))
-            B = B.at[li, lk].add(beta)
+            signs = jnp.asarray(self.src_signs or (1.0,) * len(self.src_links), jnp.float32)
+            B = B.at[li, lk].add(beta * signs)
         if self.state_edges:
             g_state = positive("conductance_state", len(self.state_edges), self.init_conductance)
             si, sj = (np.array(v, dtype=int) for v in zip(*self.state_edges))
@@ -348,6 +350,8 @@ class PCRNNForecaster(_WindowedNeuralForecaster):
     Time steps are taken from a DatetimeIndex (gaps are integrated with the actual elapsed time,
     capped at ``max_gap_hours``); otherwise ``default_dt_hours`` is used.
 
+    :param cooling: source links ``(column, node)`` or ``(column, node, transform)`` of the network
+        with a negative gain (e.g. wind cooling), as for the Kalman model
     :param mode: "hard" (network is the model, optional residual) or "soft" (LSTM + physics loss)
     :param residual: hard mode only; add a learned residual heat source q_NN(x_t) on the target
     :param residual_features: inputs of the residual MLP / soft-mode LSTM. Default: all numeric
@@ -364,7 +368,8 @@ class PCRNNForecaster(_WindowedNeuralForecaster):
                  neighbours: Optional[List[str]] = None,
                  sources: Optional[Dict[str, Union[str, tuple]]] = None,
                  latent: Optional[List[str]] = None, edges: Optional[List[tuple]] = None,
-                 measured_states: Optional[List[str]] = None, mode: str = "hard", residual: bool = True,
+                 measured_states: Optional[List[str]] = None, cooling: Sequence = (),
+                 mode: str = "hard", residual: bool = True,
                  residual_features: Optional[List[str]] = None,
                  residual_penalty: float = 1.0, physics_weight: float = 0.25,
                  max_gap_hours: float = 24.0, default_dt_hours: float = 1 / 6,
@@ -379,6 +384,7 @@ class PCRNNForecaster(_WindowedNeuralForecaster):
             raise ValueError("Pass either a ThermalNetworkSpec or neighbours/sources/latent/"
                              "edges/measured_states, not both.")
         self.network = network
+        self.cooling = [(c[0], c[1], c[2] if len(c) > 2 else "linear") for c in cooling]
         self.mode = mode
         self.residual = residual
         self.residual_features = residual_features
@@ -480,9 +486,12 @@ class PCRNNForecaster(_WindowedNeuralForecaster):
                 s, o = (a, b) if a in states else (b, a)
                 obs_edges.append((states.index(s), obs.index(o)))
         src_links = tuple((states.index(node), k) for k, (_, node, _) in enumerate(self._src_links))
+        cooling = set(self.cooling)
+        src_signs = tuple(-1.0 if link in cooling else 1.0 for link in self._src_links)
         return ThermalNetworkNet(
             n_states=len(states), n_obs=len(obs), n_src=len(self._src_links),
             state_edges=tuple(state_edges), obs_edges=tuple(obs_edges), src_links=src_links,
+            src_signs=src_signs,
             y_mean=self._y_mean, y_std=self._y_std, mode=self.mode, residual=self.residual,
             hidden_size=self.hidden_size, residual_penalty=self.residual_penalty,
             physics_weight=self.physics_weight)
@@ -494,7 +503,8 @@ class PCRNNForecaster(_WindowedNeuralForecaster):
         Learned physical parameters of the fitted network (target heat capacity = 1):
 
         * ``conductances``: {(node_a, node_b): G in 1/h}
-        * ``source_gains``: {(source, node): K/h at full load (99th percentile of the source)}
+        * ``source_gains``: {(source, node): K/h at full load (99th percentile of the source),
+          negative for ``cooling`` links}
         * ``capacities``: {state: C relative to the target}
         * ``time_constants_h``: {state: C_i / sum of its conductances, in hours}
         * ``steady_state_rise_K``: {(source, node): steady temperature rise at full load}

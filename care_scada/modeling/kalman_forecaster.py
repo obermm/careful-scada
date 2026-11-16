@@ -11,6 +11,10 @@ sources u (scaled to their 99th percentile, optionally squared) and, for measure
 constant heat c_i and an outside-temperature heat term gamma_i. The system is discretised exactly
 on the 10-min grid and run as a Kalman filter; the target sensor is never assimilated at
 prediction time, so a fault shows up as a residual.
+
+Source links listed in ``cooling`` enter with a negative gain (e.g. wind cooling). With
+``training="free"`` the network is fitted and run as a pure simulation of all sensors
+(``simulate``): no sensor is assimilated, every gap-free sequence starts at the measurements.
 """
 
 import copy
@@ -69,8 +73,9 @@ def _pad(a: np.ndarray, n: int, value: Optional[float] = None) -> np.ndarray:
 class KalmanThermalForecaster(TimeSeriesModel):
     """
     Latent-state lumped heat network fitted by Kalman-filter maximum likelihood ("kalman", the
-    target is assimilated while fitting) or by the free-run MSE of the unassimilated target
-    ("observer").
+    target is assimilated while fitting), by the free-run MSE of the unassimilated target
+    ("observer"), or as a pure simulation by the MSE of all sensors with none assimilated
+    ("free"; ``predict`` and ``simulate`` then run the network without any sensor).
 
     The network is defined as for the PCRNN: pass a complete ``ThermalNetworkSpec`` as
     ``network``, or override the ``thermal_networks`` config entry of the target with
@@ -80,7 +85,9 @@ class KalmanThermalForecaster(TimeSeriesModel):
 
     :param const_heat: constant heat c per measured state
     :param temp_heat: heat term gamma * (T_out - 10) per measured state
-    :param training: "observer" or "kalman"
+    :param cooling: source links ``(column, node)`` or ``(column, node, transform)`` of the
+        network with a negative gain, e.g. ``[("wind_speed1_ms_avg", target)]``
+    :param training: "observer", "kalman" or "free"
     :param chunk_len: training sequences are cut into chunks of this many 10-min steps
     :param burn_in: steps per chunk excluded from the observer loss
     """
@@ -89,12 +96,12 @@ class KalmanThermalForecaster(TimeSeriesModel):
                  neighbours: Optional[Sequence[str]] = None, sources=None,
                  latent: Optional[Sequence[str]] = None, edges: Optional[Sequence[tuple]] = None,
                  measured_states: Optional[Sequence[str]] = None, const_heat: bool = True,
-                 temp_heat: bool = True, outside: str = "outside_temp_c_avg",
+                 temp_heat: bool = True, outside: str = "outside_temp_c_avg", cooling: Sequence = (),
                  training: str = "observer", chunk_len: int = 432, burn_in: int = 36,
                  steps: int = 600, learning_rate: float = 0.02, max_gap_minutes: float = 60.0,
                  verbose: bool = False):
-        if training not in ("kalman", "observer"):
-            raise ValueError("training must be 'kalman' or 'observer'")
+        if training not in ("kalman", "observer", "free"):
+            raise ValueError("training must be 'kalman', 'observer' or 'free'")
         overrides = dict(neighbours=neighbours, sources=sources, latent=latent, edges=edges,
                          measured_states=measured_states)
         if network is not None and any(v is not None for v in overrides.values()):
@@ -102,6 +109,7 @@ class KalmanThermalForecaster(TimeSeriesModel):
                              "measured_states, not both.")
         self.network, self._overrides, self.outside = network, overrides, outside
         self.const_heat, self.temp_heat, self.training = const_heat, temp_heat, training
+        self.cooling = [(c[0], c[1], c[2] if len(c) > 2 else "linear") for c in cooling]
         self.chunk_len, self.burn_in, self.steps = chunk_len, burn_in, steps
         self.learning_rate, self.max_gap_minutes, self.verbose = learning_rate, max_gap_minutes, verbose
         self.reset()
@@ -140,6 +148,9 @@ class KalmanThermalForecaster(TimeSeriesModel):
                 self._m_sink[idx[st], self.sinks_.index(o)] = 1.0
         for name, node, t in links:
             self._m_src[idx[node], self._src.index((name, t))] = 1.0
+        for name, node, t in self.cooling:  # negative gains
+            if node in idx and (name, t) in self._src:
+                self._m_src[idx[node], self._src.index((name, t))] *= -1.0
 
     def _inputs(self, df: pd.DataFrame) -> np.ndarray:
         """u = [sinks, scaled sources (squared where specified), 1, T_out - 10]."""
@@ -203,6 +214,23 @@ class KalmanThermalForecaster(TimeSeriesModel):
         _, (nll, x) = _kalman(F, G, Q, R, x0, jnp.eye(len(x0)) * 4.0, u, y, m)
         return nll, x[:, 0]
 
+    def _simulate(self, p, u, y, m):
+        """Free-run estimates of all sensors over one sequence, no sensor assimilated. One-point
+        initialisation: sensors at their first measurement, latent nodes in steady state given them."""
+        A, B = self._system(p)
+        F, G = self._discretise(A, B)
+        ms = len(self.sensors_)
+        Bu0 = B @ u[0]
+        x0 = jnp.where(m[0] > 0, y[0], -jnp.linalg.solve(A, Bu0)[:ms])
+        if A.shape[0] > ms:
+            x0 = jnp.concatenate([x0, -jnp.linalg.solve(A[ms:, ms:], A[ms:, :ms] @ x0 + Bu0[ms:])])
+
+        def step(x, u_t):
+            x = F @ x + G @ u_t
+            return x, x[:ms]
+        _, xs = jax.lax.scan(step, x0, u[1:])
+        return jnp.concatenate([x0[None, :ms], xs])
+
     # ------------------------------------------------------------------ API
     @_x64
     def fit(self, train_df: pd.DataFrame, target_col: str):
@@ -239,9 +267,13 @@ class KalmanThermalForecaster(TimeSeriesModel):
                                          for c in chunks])) for k in "uym")
         loss_mask = M[:, :, 0] * (jnp.arange(L) >= self.burn_in)
         filt = jax.vmap(self._filter, in_axes=(None, 0, 0, 0))
+        sim = jax.vmap(self._simulate, in_axes=(None, 0, 0, 0))
+        W = M * (jnp.arange(L) >= self.burn_in)[None, :, None]
 
         def loss_fn(p):
-            if self.training == "kalman":
+            if self.training == "free":  # no sensor assimilated, MSE of all sensors
+                loss = jnp.sum(W * (sim(p, U, Y, M) - Y) ** 2) / W.sum()
+            elif self.training == "kalman":
                 nll, _ = filt(p, U, Y, M)
                 loss = nll.sum() / M.sum()
             else:  # the target is never assimilated
@@ -254,8 +286,9 @@ class KalmanThermalForecaster(TimeSeriesModel):
                 loss = loss + w * sum(sq) / sum(np.size(v) for v in jax.tree_util.tree_leaves(p0))
             return loss
 
+        alpha = 0.02 if self.training == "free" else 0.05  # final / initial learning rate
         opt = optax.chain(optax.clip_by_global_norm(10.0),
-                          optax.adam(optax.cosine_decay_schedule(learning_rate, steps, alpha=0.05)))
+                          optax.adam(optax.cosine_decay_schedule(learning_rate, steps, alpha=alpha)))
         state = opt.init(params)
 
         @jax.jit
@@ -283,6 +316,8 @@ class KalmanThermalForecaster(TimeSeriesModel):
     def predict(self, test_df: pd.DataFrame, target_col: str) -> pd.DataFrame:
         if self.params is None:
             raise RuntimeError("Model must be fitted before calling predict.")
+        if self.training == "free":
+            return self.simulate(test_df)[[self.target_col]].set_axis([target_col], axis=1)
         out = np.full(len(test_df), np.nan)
         run = jax.jit(self._filter)
         for s in self._sequences(test_df):
@@ -294,6 +329,22 @@ class KalmanThermalForecaster(TimeSeriesModel):
                          jnp.asarray(_pad(s["y"], pad, 0.0)), jnp.asarray(_pad(m, pad, 0.0)))
             out[s["rows"]] = np.asarray(est)[s["pos"]]
         return pd.DataFrame(out, index=test_df.index, columns=[target_col])
+
+    @_x64
+    def simulate(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Free-run estimates of the target and the measured states (no sensor assimilated; every
+        gap-free sequence starts at the measurements), columns = sensors."""
+        if self.params is None:
+            raise RuntimeError("Model must be fitted before calling simulate.")
+        out = np.full((len(df), len(self.sensors_)), np.nan)
+        run = jax.jit(self._simulate)
+        for s in self._sequences(df):
+            n = len(s["u"])
+            pad = -n % 1024  # few distinct shapes -> few compilations
+            est = run(self.params, jnp.asarray(_pad(s["u"], pad)), jnp.asarray(_pad(s["y"], pad, 0.0)),
+                      jnp.asarray(_pad(s["m"], pad, 0.0)))
+            out[s["rows"]] = np.asarray(est)[:n][s["pos"]]
+        return pd.DataFrame(out, index=df.index, columns=self.sensors_)
 
     @_x64
     def track_heat(self, df: pd.DataFrame, ss_std_per_day: float = 0.05,
